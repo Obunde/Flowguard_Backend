@@ -1,57 +1,42 @@
-"""Gold-layer aggregation: rolling-window feature computation over silver
-data. The compute functions are stubs — the aggregation math (window
-sizing, mean/std/trend calculation) is not implemented yet. Read-side list
-functions are implemented since app/feature_engineering depends on them.
-"""
-import uuid
-from datetime import datetime, timedelta
+import time
+from sqlalchemy import create_engine, text, select
+from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.exc import SQLAlchemyError
+from app.etl.gold.models import GoldMLFeatures
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+def run_micro_batch(session: Session):
+    """Orchestrates the periodic refresh of the Gold ML features view."""
+    print("⚙️ Starting Pipeline Orchestrator. Press Ctrl+C to stop.")
+    refresh_query = text("REFRESH MATERIALIZED VIEW gold_ml_features;")
+    
+    while True:
+        try:
+            print(f"[{time.strftime('%H:%M:%S')}] Refreshing Gold Materialized View...")
+            session.execute(refresh_query)
+            session.commit()
+            print("✅ Refresh complete. Dashboard and ML views updated.")
+            time.sleep(15)
+        except KeyboardInterrupt:
+            print("\n🛑 Orchestrator stopped.")
+            break
+        except SQLAlchemyError as e:
+            session.rollback()
+            print(f"Database Error: {e}")
+            time.sleep(15)
+        except Exception as e:
+            print(f"Pipeline Error: {e}")
+            time.sleep(15)
 
-from app.etl.gold.models import PumpFeatureWindow, StationRiskComposite, WeatherDailyRollup
+def get_ml_features(session: Session, pump_id: str, limit: int = 50):
+    """Retrieves the aggregated rolling averages and failure risk metrics."""
+    stmt = select(GoldMLFeatures).where(
+        GoldMLFeatures.pump_id == pump_id
+    ).order_by(GoldMLFeatures.timestamp.desc()).limit(limit)
+    return session.scalars(stmt).all()
 
-
-def compute_pump_feature_windows(
-    db: Session, tenant_id: uuid.UUID, pump_id: uuid.UUID, window: timedelta
-) -> list[PumpFeatureWindow]:
-    """Aggregate `sensor_reading` into rolling windows for one pump. Not
-    implemented yet.
-    """
-    raise NotImplementedError("gold pump feature window computation is not implemented yet")
-
-
-def compute_weather_daily_rollups(
-    db: Session, tenant_id: uuid.UUID, station_id: uuid.UUID, day: datetime
-) -> WeatherDailyRollup:
-    """Aggregate `weather_reading` into a daily rollup for one station. Not
-    implemented yet.
-    """
-    raise NotImplementedError("gold weather daily rollup computation is not implemented yet")
-
-
-def compute_station_risk_composite(
-    db: Session, tenant_id: uuid.UUID, station_id: uuid.UUID
-) -> StationRiskComposite:
-    """Aggregate `regional_risk_score` (and related signals) into a
-    composite station risk score. Not implemented yet.
-    """
-    raise NotImplementedError("gold station risk composite computation is not implemented yet")
-
-
-def list_pump_feature_windows(
-    db: Session, tenant_id: uuid.UUID, pump_id: uuid.UUID | None = None
-) -> list[PumpFeatureWindow]:
-    stmt = select(PumpFeatureWindow).where(PumpFeatureWindow.tenant_id == tenant_id)
-    if pump_id is not None:
-        stmt = stmt.where(PumpFeatureWindow.pump_id == pump_id)
-    return list(db.scalars(stmt.order_by(PumpFeatureWindow.window_start.desc())))
-
-
-def list_station_risk_composites(
-    db: Session, tenant_id: uuid.UUID, station_id: uuid.UUID | None = None
-) -> list[StationRiskComposite]:
-    stmt = select(StationRiskComposite).where(StationRiskComposite.tenant_id == tenant_id)
-    if station_id is not None:
-        stmt = stmt.where(StationRiskComposite.station_id == station_id)
-    return list(db.scalars(stmt.order_by(StationRiskComposite.computed_at.desc())))
+# Execution entry point
+if __name__ == "__main__":
+    engine = create_engine('postgresql://postgres:Kabarnet%409@localhost:5432/kpc_predictive_maintenance')
+    SessionLocal = sessionmaker(bind=engine)
+    with SessionLocal() as db_session:
+        run_micro_batch(db_session)
