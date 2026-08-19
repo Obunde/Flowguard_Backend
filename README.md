@@ -149,6 +149,19 @@ Run tests (needs `TEST_DATABASE_URL` reachable, see `.env.example`):
 uv run pytest
 ```
 
+### Docker
+
+```bash
+docker compose up --build                     # Postgres + migrate (one-shot) + api
+docker compose --profile seed run --rm seed    # seed KPC (after migrate has run)
+```
+
+`api` serves on `http://localhost:8000` (`/health`, `/docs`). The `db`
+service uses TCP + password auth (`flowgard`/`flowgard`) since containers
+don't share the host's Unix-socket peer auth — see the note in
+`.env.example`. Override `JWT_SECRET_KEY` via a `.env` file (docker compose
+reads it automatically) rather than the compose file's dev default.
+
 ## Adding a new module
 
 1. `mkdir app/<module>` with whichever of `models.py` / `schemas.py` /
