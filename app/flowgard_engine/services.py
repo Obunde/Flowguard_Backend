@@ -4,11 +4,10 @@ fill in Flowgard math module by module" refers to); read access to prior
 results is implemented since app.prediction/app.alert will need it.
 """
 import uuid
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-
-from datetime import datetime, timezone
 
 from app.etl.gold.models import PumpFeatureWindow
 from app.flowgard_engine.models import HealthDeviationRecord
@@ -25,7 +24,11 @@ def compute_health_deviation(
     if pump is None:
         raise ValueError(f"Pump {pump_id} not found for tenant {tenant_id}")
 
-    rated_pressure = float(pump.rated_pressure_kpa) if pump.rated_pressure_kpa is not None else 4000.0
+    rated_pressure = (
+        float(pump.rated_pressure_kpa)
+        if pump.rated_pressure_kpa is not None
+        else 4000.0
+    )
 
     # Retrieve latest feature window from ETL Gold layer
     gold_window = db.scalar(
@@ -37,7 +40,11 @@ def compute_health_deviation(
 
     if gold_window and gold_window.pressure_mean is not None:
         actual_pressure = float(gold_window.pressure_mean)
-        vibration_val = float(gold_window.vibration_mean) if gold_window.vibration_mean is not None else 1.5
+        vibration_val = (
+            float(gold_window.vibration_mean)
+            if gold_window.vibration_mean is not None
+            else 1.5
+        )
     else:
         # Baseline/default telemetry values if gold features haven't run yet
         actual_pressure = rated_pressure * 0.95
@@ -53,7 +60,7 @@ def compute_health_deviation(
     record = HealthDeviationRecord(
         tenant_id=tenant_id,
         pump_id=pump_id,
-        computed_at=datetime.now(timezone.utc),
+        computed_at=datetime.now(UTC),
         pressure_residual=round(pressure_residual, 4),
         health_deviation_index=hdi,
     )

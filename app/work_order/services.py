@@ -4,7 +4,9 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.work_order.models import WorkOrder, WorkOrderStatus
+from app.prediction.services import get_latest_prediction, run_prediction
+from app.pump.models import Pump
+from app.work_order.models import WorkOrder, WorkOrderSource, WorkOrderStatus
 from app.work_order.schemas import WorkOrderCreate, WorkOrderUpdate
 
 
@@ -47,14 +49,6 @@ def list_work_orders(
     return list(db.scalars(stmt.order_by(WorkOrder.created_at.desc())))
 
 
-from datetime import datetime, timezone
-
-from app.prediction.services import get_latest_prediction, run_prediction
-from app.pump.models import Pump
-from app.work_order.models import WorkOrder, WorkOrderSource, WorkOrderStatus
-from app.work_order.schemas import WorkOrderCreate, WorkOrderUpdate
-
-
 def update_work_order(
     db: Session, tenant_id: uuid.UUID, work_order_id: uuid.UUID, payload: WorkOrderUpdate
 ) -> WorkOrder | None:
@@ -86,7 +80,8 @@ def create_work_order_from_prediction(
 
     priority = "high" if risk_score >= 0.85 else "normal"
     fault_label = prediction.predicted_class or "mechanical_anomaly"
-    title = f"Condition-Based Maintenance: {fault_label.replace('_', ' ').title()} (Risk: {risk_score * 100:.1f}%)"
+    formatted_label = fault_label.replace("_", " ").title()
+    title = f"Condition-Based Maintenance: {formatted_label} (Risk: {risk_score * 100:.1f}%)"
     description = (
         f"Automated work order raised from prediction scoring. "
         f"7-day failure risk score: {risk_score:.2f}, fault class: {fault_label}."

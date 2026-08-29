@@ -1,4 +1,6 @@
 """Smoke tests for the work_order module: router registration + tenant scoping."""
+from datetime import UTC
+
 from sqlalchemy.orm import Session
 
 from app.pump.models import Pump, PumpStatus
@@ -63,13 +65,18 @@ def test_work_order_routes_crud(client, headers_a, station_a, db_session):
     assert get_res.status_code == 200
     assert get_res.json()["title"] == "Replace mechanical seal"
 
-    patch_res = client.patch(f"/api/v1/work-orders/{wo_id}", json={"status": "in_progress"}, headers=headers_a)
+    patch_res = client.patch(
+        f"/api/v1/work-orders/{wo_id}",
+        json={"status": "in_progress"},
+        headers=headers_a,
+    )
     assert patch_res.status_code == 200
     assert patch_res.json()["status"] == "in_progress"
 
 
 def test_auto_generate_work_order_route(client, headers_a, station_a, db_session):
-    from datetime import datetime, timezone
+    from datetime import datetime
+
     from app.prediction.models import PredictionResult
 
     pump_a = Pump(
@@ -85,7 +92,7 @@ def test_auto_generate_work_order_route(client, headers_a, station_a, db_session
     pred = PredictionResult(
         tenant_id=station_a.tenant_id,
         pump_id=pump_a.id,
-        computed_at=datetime.now(timezone.utc),
+        computed_at=datetime.now(UTC),
         predicted_class="bearing_fault",
         risk_score_7d=0.88,
         model_version="v1.0.0",
@@ -93,7 +100,10 @@ def test_auto_generate_work_order_route(client, headers_a, station_a, db_session
     db_session.add(pred)
     db_session.commit()
 
-    auto_res = client.post(f"/api/v1/work-orders/auto-generate/pumps/{pump_a.id}", headers=headers_a)
+    auto_res = client.post(
+        f"/api/v1/work-orders/auto-generate/pumps/{pump_a.id}",
+        headers=headers_a,
+    )
     assert auto_res.status_code == 201
     wo_data = auto_res.json()
     assert wo_data["pump_id"] == str(pump_a.id)
@@ -102,6 +112,11 @@ def test_auto_generate_work_order_route(client, headers_a, station_a, db_session
 
 def test_work_order_not_found(client, headers_a):
     fake_id = "00000000-0000-0000-0000-000000000000"
-    assert client.get(f"/api/v1/work-orders/{fake_id}", headers=headers_a).status_code == 404
-    assert client.patch(f"/api/v1/work-orders/{fake_id}", json={"status": "completed"}, headers=headers_a).status_code == 404
-
+    get_res = client.get(f"/api/v1/work-orders/{fake_id}", headers=headers_a)
+    assert get_res.status_code == 404
+    patch_res = client.patch(
+        f"/api/v1/work-orders/{fake_id}",
+        json={"status": "completed"},
+        headers=headers_a,
+    )
+    assert patch_res.status_code == 404

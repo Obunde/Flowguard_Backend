@@ -1,0 +1,62 @@
+name: CI Pipeline - Flowguard Backend
+
+on:
+  push:
+    branches: [ "main", "feature/*", "track-*" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  test-and-lint:
+    name: Build, Lint & Test
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: ci_db_user
+          POSTGRES_PASSWORD: ${{ secrets.CI_POSTGRES_PASSWORD || 'ci_test_db_pwd_no_secret' }}
+          POSTGRES_DB: flowgard_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Code Quality & Linting (Ruff)
+        run: |
+          ruff check .
+
+      - name: Run Alembic Database Migrations
+        env:
+          DATABASE_URL: postgresql+psycopg://ci_db_user:${{ secrets.CI_POSTGRES_PASSWORD || 'ci_test_db_pwd_no_secret' }}@localhost:5432/flowgard_test
+          TEST_DATABASE_URL: postgresql+psycopg://ci_db_user:${{ secrets.CI_POSTGRES_PASSWORD || 'ci_test_db_pwd_no_secret' }}@localhost:5432/flowgard_test
+          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY || 'ci_jwt_secret_placeholder_no_secret' }}
+        run: |
+          alembic upgrade head
+
+      - name: Run Pytest Suite with Coverage
+        env:
+          DATABASE_URL: postgresql+psycopg://ci_db_user:${{ secrets.CI_POSTGRES_PASSWORD || 'ci_test_db_pwd_no_secret' }}@localhost:5432/flowgard_test
+          TEST_DATABASE_URL: postgresql+psycopg://ci_db_user:${{ secrets.CI_POSTGRES_PASSWORD || 'ci_test_db_pwd_no_secret' }}@localhost:5432/flowgard_test
+          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY || 'ci_jwt_secret_placeholder_no_secret' }}
+        run: |
+          pytest -v --cov=app --cov-report=term-missing tests/

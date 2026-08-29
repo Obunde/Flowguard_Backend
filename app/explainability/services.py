@@ -3,11 +3,10 @@
 Computation logic is not implemented yet; reads of prior results are.
 """
 import uuid
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-
-from datetime import datetime, timezone
 
 from app.etl.gold.models import PumpFeatureWindow
 from app.explainability.models import FeatureAttribution
@@ -30,12 +29,28 @@ def compute_feature_attribution(
         .limit(1)
     )
 
-    vibration = float(gold_window.vibration_mean) if gold_window and gold_window.vibration_mean else 1.5
-    temp = float(gold_window.temperature_mean) if gold_window and gold_window.temperature_mean else 45.0
-    motor_curr = float(gold_window.motor_current_mean) if gold_window and gold_window.motor_current_mean else 35.0
+    vibration = (
+        float(gold_window.vibration_mean)
+        if gold_window and gold_window.vibration_mean
+        else 1.5
+    )
+    temp = (
+        float(gold_window.temperature_mean)
+        if gold_window and gold_window.temperature_mean
+        else 45.0
+    )
+    motor_curr = (
+        float(gold_window.motor_current_mean)
+        if gold_window and gold_window.motor_current_mean
+        else 35.0
+    )
 
     hdi_rec = get_latest_health_deviation(db, tenant_id, pump_id)
-    hdi = float(hdi_rec.health_deviation_index) if hdi_rec and hdi_rec.health_deviation_index else 0.1
+    hdi = (
+        float(hdi_rec.health_deviation_index)
+        if hdi_rec and hdi_rec.health_deviation_index
+        else 0.1
+    )
 
     shap_values = {
         "vibration_mean": round(min(0.5, (vibration / 8.0) * 0.4), 4),
@@ -58,7 +73,7 @@ def compute_feature_attribution(
     attribution = FeatureAttribution(
         tenant_id=tenant_id,
         pump_id=pump_id,
-        computed_at=datetime.now(timezone.utc),
+        computed_at=datetime.now(UTC),
         component_scores=component_scores,
         shap_values=shap_values,
         top_component=top_component,

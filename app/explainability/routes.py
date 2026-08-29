@@ -35,7 +35,11 @@ def get_latest_feature_attribution(
     return result
 
 
-@router.post("/pumps/{pump_id}/trigger", response_model=FeatureAttributionRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/pumps/{pump_id}/trigger",
+    response_model=FeatureAttributionRead,
+    status_code=status.HTTP_201_CREATED,
+)
 def trigger_feature_attribution(
     pump_id: uuid.UUID,
     db: Session = Depends(get_db),
@@ -44,5 +48,5 @@ def trigger_feature_attribution(
     try:
         return services.compute_feature_attribution(db, tenant_id, pump_id)
     except ValueError as err:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err)) from err
 

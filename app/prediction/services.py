@@ -3,11 +3,10 @@
 Scoring logic is not implemented yet; reads of prior results are.
 """
 import uuid
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-
-from datetime import datetime, timezone
 
 from app.etl.gold.models import PumpFeatureWindow
 from app.flowgard_engine.services import compute_health_deviation, get_latest_health_deviation
@@ -27,7 +26,11 @@ def run_prediction(db: Session, tenant_id: uuid.UUID, pump_id: uuid.UUID) -> Pre
     hdi_record = get_latest_health_deviation(db, tenant_id, pump_id)
     if hdi_record is None or hdi_record.health_deviation_index is None:
         hdi_record = compute_health_deviation(db, tenant_id, pump_id)
-    hdi_score = float(hdi_record.health_deviation_index) if hdi_record.health_deviation_index else 0.1
+    hdi_score = (
+        float(hdi_record.health_deviation_index)
+        if hdi_record.health_deviation_index
+        else 0.1
+    )
 
     # Fetch latest feature window
     gold_window = db.scalar(
@@ -37,17 +40,26 @@ def run_prediction(db: Session, tenant_id: uuid.UUID, pump_id: uuid.UUID) -> Pre
         .limit(1)
     )
 
-    vibration_val = float(gold_window.vibration_mean) if gold_window and gold_window.vibration_mean else 1.5
-    temp_val = float(gold_window.temperature_mean) if gold_window and gold_window.temperature_mean else 45.0
+    vibration_val = (
+        float(gold_window.vibration_mean)
+        if gold_window and gold_window.vibration_mean
+        else 1.5
+    )
+    temp_val = (
+        float(gold_window.temperature_mean)
+        if gold_window and gold_window.temperature_mean
+        else 45.0
+    )
 
     # Risk score calculation
     vib_risk = min(1.0, vibration_val / 8.0)
     temp_risk = min(1.0, max(0.0, (temp_val - 40.0) / 40.0))
     age_risk = min(1.0, (pump.prior_intervention_count * 0.15))
 
-    risk_score_7d = round(
-        min(1.0, max(0.0, 0.45 * hdi_score + 0.35 * vib_risk + 0.10 * temp_risk + 0.10 * age_risk)), 4
+    weighted_score = (
+        0.45 * hdi_score + 0.35 * vib_risk + 0.10 * temp_risk + 0.10 * age_risk
     )
+    risk_score_7d = round(min(1.0, max(0.0, weighted_score)), 4)
 
     # Failure mode classification logic
     if risk_score_7d < 0.35:
@@ -62,7 +74,7 @@ def run_prediction(db: Session, tenant_id: uuid.UUID, pump_id: uuid.UUID) -> Pre
     result = PredictionResult(
         tenant_id=tenant_id,
         pump_id=pump_id,
-        computed_at=datetime.now(timezone.utc),
+        computed_at=datetime.now(UTC),
         predicted_class=predicted_class,
         risk_score_7d=risk_score_7d,
         model_version="v1.0.0",

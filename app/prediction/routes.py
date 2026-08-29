@@ -33,7 +33,11 @@ def get_latest_prediction(
     return result
 
 
-@router.post("/pumps/{pump_id}/trigger", response_model=PredictionResultRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/pumps/{pump_id}/trigger",
+    response_model=PredictionResultRead,
+    status_code=status.HTTP_201_CREATED,
+)
 def trigger_prediction(
     pump_id: uuid.UUID,
     db: Session = Depends(get_db),
@@ -42,5 +46,5 @@ def trigger_prediction(
     try:
         return services.run_prediction(db, tenant_id, pump_id)
     except ValueError as err:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err)) from err
 

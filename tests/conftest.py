@@ -10,8 +10,9 @@ import uuid
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import StaticPool
 
 # Import every module's models so they register on Base.metadata — mirrors
 # migrations/env.py. Add a line here whenever a new module gets models.py.
@@ -38,9 +39,6 @@ from app.main import app as fastapi_app  # noqa: E402
 from app.station.models import Station  # noqa: E402
 from app.tenant.models import Tenant  # noqa: E402
 from app.user.models import User, UserRole  # noqa: E402
-
-from sqlalchemy import create_engine, event
-from sqlalchemy.pool import StaticPool
 
 TEST_DATABASE_URL = settings.test_database_url or settings.database_url
 

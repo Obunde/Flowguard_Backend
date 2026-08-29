@@ -72,7 +72,11 @@ def test_station_not_found_routes(client, headers_a):
     get_res = client.get(f"/api/v1/stations/{fake_id}", headers=headers_a)
     assert get_res.status_code == 404
 
-    patch_res = client.patch(f"/api/v1/stations/{fake_id}", json={"name": "Updated"}, headers=headers_a)
+    patch_res = client.patch(
+        f"/api/v1/stations/{fake_id}",
+        json={"name": "Updated"},
+        headers=headers_a,
+    )
     assert patch_res.status_code == 404
 
 

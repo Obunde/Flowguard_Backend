@@ -62,7 +62,12 @@ def test_create_and_get_pump_route(client, headers_a, station_a):
 def test_pump_filtering_and_not_found(client, headers_a, station_a):
     fake_id = "00000000-0000-0000-0000-000000000000"
     assert client.get(f"/api/v1/pumps/{fake_id}", headers=headers_a).status_code == 404
-    assert client.patch(f"/api/v1/pumps/{fake_id}", json={"status": "maintenance"}, headers=headers_a).status_code == 404
+    patch_res = client.patch(
+        f"/api/v1/pumps/{fake_id}",
+        json={"status": "maintenance"},
+        headers=headers_a,
+    )
+    assert patch_res.status_code == 404
 
     # Filter by station_id
     res = client.get(f"/api/v1/pumps?station_id={station_a.id}", headers=headers_a)

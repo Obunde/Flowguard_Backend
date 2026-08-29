@@ -1,7 +1,6 @@
 """Smoke tests for the explainability module: router registration + tenant scoping."""
 import uuid
 
-import pytest
 from sqlalchemy.orm import Session
 
 from app.explainability import services
@@ -70,6 +69,14 @@ def test_trigger_explainability_route(client, headers_a, station_a, db_session):
 
 def test_explainability_not_found_routes(client, headers_a):
     fake_id = "00000000-0000-0000-0000-000000000000"
-    assert client.get(f"/api/v1/explainability/pumps/{fake_id}/latest", headers=headers_a).status_code == 404
-    assert client.post(f"/api/v1/explainability/pumps/{fake_id}/trigger", headers=headers_a).status_code == 404
+    latest_res = client.get(
+        f"/api/v1/explainability/pumps/{fake_id}/latest",
+        headers=headers_a,
+    )
+    assert latest_res.status_code == 404
+    trig_res = client.post(
+        f"/api/v1/explainability/pumps/{fake_id}/trigger",
+        headers=headers_a,
+    )
+    assert trig_res.status_code == 404
 
