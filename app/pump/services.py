@@ -4,7 +4,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.pump.models import Pump
+from app.pump.models import Pump, PumpStatus
 from app.pump.schemas import PumpCreate, PumpUpdate
 
 
@@ -21,11 +21,16 @@ def get_pump(db: Session, tenant_id: uuid.UUID, pump_id: uuid.UUID) -> Pump | No
 
 
 def list_pumps(
-    db: Session, tenant_id: uuid.UUID, station_id: uuid.UUID | None = None
+    db: Session,
+    tenant_id: uuid.UUID,
+    station_id: uuid.UUID | None = None,
+    status_filter: PumpStatus | None = None,
 ) -> list[Pump]:
     stmt = select(Pump).where(Pump.tenant_id == tenant_id)
     if station_id is not None:
         stmt = stmt.where(Pump.station_id == station_id)
+    if status_filter is not None:
+        stmt = stmt.where(Pump.status == status_filter)
     return list(db.scalars(stmt.order_by(Pump.tag_number)))
 
 

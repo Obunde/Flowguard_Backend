@@ -38,3 +38,51 @@ def test_service_enforces_tenant_scope(db_session: Session, station_a, station_b
     # Same tag_number exists in both tenants — fetching tenant B's pump id
     # under tenant A's context must return nothing.
     assert services.get_pump(db_session, station_a.tenant_id, pump_b.id) is None
+
+
+def test_create_and_get_pump_route(client, headers_a, station_a):
+    payload = {
+        "station_id": str(station_a.id),
+        "tag_number": "PS1-P02",
+        "manufacturer": "Sulzer",
+        "model_number": "MSD 8x10",
+        "rated_flow_m3_per_hour": 850.0,
+        "rated_pressure_kpa": 4500.0,
+    }
+    res = client.post("/api/v1/pumps", json=payload, headers=headers_a)
+    assert res.status_code == 201
+    pump_id = res.json()["id"]
+
+    get_res = client.get(f"/api/v1/pumps/{pump_id}", headers=headers_a)
+    assert get_res.status_code == 200
+    assert get_res.json()["tag_number"] == "PS1-P02"
+    assert get_res.json()["status"] == "operational"
+
+
+def test_pump_filtering_and_not_found(client, headers_a, station_a):
+    fake_id = "00000000-0000-0000-0000-000000000000"
+    assert client.get(f"/api/v1/pumps/{fake_id}", headers=headers_a).status_code == 404
+    assert client.patch(f"/api/v1/pumps/{fake_id}", json={"status": "maintenance"}, headers=headers_a).status_code == 404
+
+    # Filter by station_id
+    res = client.get(f"/api/v1/pumps?station_id={station_a.id}", headers=headers_a)
+    assert res.status_code == 200
+
+
+def test_update_pump_route(client, headers_a, station_a):
+    payload = {
+        "station_id": str(station_a.id),
+        "tag_number": "PS1-P03",
+        "manufacturer": "KSB",
+    }
+    create_res = client.post("/api/v1/pumps", json=payload, headers=headers_a)
+    pump_id = create_res.json()["id"]
+
+    patch_res = client.patch(
+        f"/api/v1/pumps/{pump_id}",
+        json={"status": "maintenance", "prior_intervention_count": 2},
+        headers=headers_a,
+    )
+    assert patch_res.status_code == 200
+    assert patch_res.json()["status"] == "maintenance"
+

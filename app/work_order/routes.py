@@ -57,3 +57,26 @@ def update_work_order(
     if work_order is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Work order not found")
     return work_order
+
+
+@router.post(
+    "/auto-generate/pumps/{pump_id}",
+    response_model=WorkOrderRead | None,
+    status_code=status.HTTP_201_CREATED,
+)
+def auto_generate_work_order(
+    pump_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    tenant_id: uuid.UUID = Depends(get_current_tenant_id),
+) -> WorkOrderRead | None:
+    try:
+        wo = services.create_work_order_from_prediction(db, tenant_id, pump_id)
+        if wo is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Risk score threshold not met for auto work order generation",
+            )
+        return wo
+    except ValueError as err:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err))
+

@@ -33,3 +33,16 @@ def get_latest_feature_attribution(
             status_code=status.HTTP_404_NOT_FOUND, detail="No feature attribution found"
         )
     return result
+
+
+@router.post("/pumps/{pump_id}/trigger", response_model=FeatureAttributionRead, status_code=status.HTTP_201_CREATED)
+def trigger_feature_attribution(
+    pump_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    tenant_id: uuid.UUID = Depends(get_current_tenant_id),
+) -> FeatureAttributionRead:
+    try:
+        return services.compute_feature_attribution(db, tenant_id, pump_id)
+    except ValueError as err:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err))
+

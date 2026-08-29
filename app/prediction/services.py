@@ -7,14 +7,70 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from datetime import datetime, timezone
+
+from app.etl.gold.models import PumpFeatureWindow
+from app.flowgard_engine.services import compute_health_deviation, get_latest_health_deviation
 from app.prediction.models import PredictionResult
+from app.pump.models import Pump
 
 
 def run_prediction(db: Session, tenant_id: uuid.UUID, pump_id: uuid.UUID) -> PredictionResult:
-    """Build a feature vector (app.feature_engineering), run the
-    classification model, and persist the result. Not implemented yet.
+    """Evaluate 7-day failure risk score and failure mode classification
+    using feature windows, HDI, and pump lifecycle parameters.
     """
-    raise NotImplementedError("prediction scoring is not implemented yet")
+    pump = db.scalar(select(Pump).where(Pump.id == pump_id, Pump.tenant_id == tenant_id))
+    if pump is None:
+        raise ValueError(f"Pump {pump_id} not found for tenant {tenant_id}")
+
+    # Fetch or compute HDI score from Flowgard Engine
+    hdi_record = get_latest_health_deviation(db, tenant_id, pump_id)
+    if hdi_record is None or hdi_record.health_deviation_index is None:
+        hdi_record = compute_health_deviation(db, tenant_id, pump_id)
+    hdi_score = float(hdi_record.health_deviation_index) if hdi_record.health_deviation_index else 0.1
+
+    # Fetch latest feature window
+    gold_window = db.scalar(
+        select(PumpFeatureWindow)
+        .where(PumpFeatureWindow.tenant_id == tenant_id, PumpFeatureWindow.pump_id == pump_id)
+        .order_by(PumpFeatureWindow.window_end.desc())
+        .limit(1)
+    )
+
+    vibration_val = float(gold_window.vibration_mean) if gold_window and gold_window.vibration_mean else 1.5
+    temp_val = float(gold_window.temperature_mean) if gold_window and gold_window.temperature_mean else 45.0
+
+    # Risk score calculation
+    vib_risk = min(1.0, vibration_val / 8.0)
+    temp_risk = min(1.0, max(0.0, (temp_val - 40.0) / 40.0))
+    age_risk = min(1.0, (pump.prior_intervention_count * 0.15))
+
+    risk_score_7d = round(
+        min(1.0, max(0.0, 0.45 * hdi_score + 0.35 * vib_risk + 0.10 * temp_risk + 0.10 * age_risk)), 4
+    )
+
+    # Failure mode classification logic
+    if risk_score_7d < 0.35:
+        predicted_class = "normal"
+    elif vib_risk >= hdi_score and vib_risk >= temp_risk:
+        predicted_class = "bearing_fault"
+    elif hdi_score >= vib_risk:
+        predicted_class = "impeller_wear"
+    else:
+        predicted_class = "seal_leak"
+
+    result = PredictionResult(
+        tenant_id=tenant_id,
+        pump_id=pump_id,
+        computed_at=datetime.now(timezone.utc),
+        predicted_class=predicted_class,
+        risk_score_7d=risk_score_7d,
+        model_version="v1.0.0",
+    )
+    db.add(result)
+    db.commit()
+    db.refresh(result)
+    return result
 
 
 def get_latest_prediction(
