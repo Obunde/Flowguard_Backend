@@ -45,3 +45,48 @@ def test_route_returns_only_own_tenant_stations(client, headers_a, headers_b, st
     response_b = client.get("/api/v1/stations", headers=headers_b)
     assert response_b.status_code == 200
     assert [s["id"] for s in response_b.json()] == [str(station_b.id)]
+
+
+def test_create_and_get_station_route(client, headers_a):
+    payload = {
+        "code": "PS2",
+        "name": "PS2 Maungu",
+        "region": "Coastal",
+        "county": "Taita Taveta",
+        "throughput_capacity_m3_per_day": 12000.0,
+    }
+    create_res = client.post("/api/v1/stations", json=payload, headers=headers_a)
+    assert create_res.status_code == 201
+    station_data = create_res.json()
+    assert station_data["code"] == "PS2"
+    assert station_data["name"] == "PS2 Maungu"
+    station_id = station_data["id"]
+
+    get_res = client.get(f"/api/v1/stations/{station_id}", headers=headers_a)
+    assert get_res.status_code == 200
+    assert get_res.json()["code"] == "PS2"
+
+
+def test_station_not_found_routes(client, headers_a):
+    fake_id = "00000000-0000-0000-0000-000000000000"
+    get_res = client.get(f"/api/v1/stations/{fake_id}", headers=headers_a)
+    assert get_res.status_code == 404
+
+    patch_res = client.patch(
+        f"/api/v1/stations/{fake_id}",
+        json={"name": "Updated"},
+        headers=headers_a,
+    )
+    assert patch_res.status_code == 404
+
+
+def test_update_station_route(client, headers_a, station_a):
+    patch_res = client.patch(
+        f"/api/v1/stations/{station_a.id}",
+        json={"name": "PS1 Mombasa Main Terminal", "throughput_capacity_m3_per_day": 15000.0},
+        headers=headers_a,
+    )
+    assert patch_res.status_code == 200
+    assert patch_res.json()["name"] == "PS1 Mombasa Main Terminal"
+    assert patch_res.json()["throughput_capacity_m3_per_day"] == 15000.0
+

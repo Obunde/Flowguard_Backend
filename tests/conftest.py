@@ -10,8 +10,9 @@ import uuid
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import StaticPool
 
 # Import every module's models so they register on Base.metadata — mirrors
 # migrations/env.py. Add a line here whenever a new module gets models.py.
@@ -41,7 +42,28 @@ from app.user.models import User, UserRole  # noqa: E402
 
 TEST_DATABASE_URL = settings.test_database_url or settings.database_url
 
-engine = create_engine(TEST_DATABASE_URL, future=True)
+try:
+    engine = create_engine(TEST_DATABASE_URL, future=True)
+    with engine.connect() as conn:
+        pass
+except Exception:
+    TEST_DATABASE_URL = "sqlite:///:memory:"
+    engine = create_engine(
+        TEST_DATABASE_URL,
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+        future=True,
+    )
+
+
+@event.listens_for(engine, "connect")
+def _set_sqlite_pragma(dbapi_connection, connection_record):
+    if "sqlite" in str(engine.url):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
+
 TestSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 
 

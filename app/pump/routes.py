@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.db import get_db
 from app.core.tenancy import get_current_tenant_id
 from app.pump import services
+from app.pump.models import PumpStatus
 from app.pump.schemas import PumpCreate, PumpRead, PumpUpdate
 
 router = APIRouter(prefix="/api/v1/pumps", tags=["pumps"])
@@ -24,10 +25,11 @@ def create_pump(
 @router.get("", response_model=list[PumpRead])
 def list_pumps(
     station_id: uuid.UUID | None = None,
+    status_filter: PumpStatus | None = None,
     db: Session = Depends(get_db),
     tenant_id: uuid.UUID = Depends(get_current_tenant_id),
 ) -> list[PumpRead]:
-    return services.list_pumps(db, tenant_id, station_id=station_id)
+    return services.list_pumps(db, tenant_id, station_id=station_id, status_filter=status_filter)
 
 
 @router.get("/{pump_id}", response_model=PumpRead)
