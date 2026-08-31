@@ -31,3 +31,20 @@ def get_latest_prediction(
     if result is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No prediction found")
     return result
+
+
+@router.post(
+    "/pumps/{pump_id}/trigger",
+    response_model=PredictionResultRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def trigger_prediction(
+    pump_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    tenant_id: uuid.UUID = Depends(get_current_tenant_id),
+) -> PredictionResultRead:
+    try:
+        return services.run_prediction(db, tenant_id, pump_id)
+    except ValueError as err:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err)) from err
+
