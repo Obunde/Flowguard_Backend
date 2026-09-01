@@ -1,12 +1,14 @@
 import random
-import httpx
-from uuid import UUID
 from datetime import datetime
+from uuid import UUID
+
+import httpx
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.etl.bronze.models import BronzePumpTelemetry, BronzeWeatherAPI, BronzeRegionalRisk
-from app.etl.silver.models import SensorReading, WeatherReading, RegionalRiskScore
+from app.etl.bronze.models import BronzePumpTelemetry, BronzeRegionalRisk, BronzeWeatherAPI
+from app.etl.silver.models import RegionalRiskScore, SensorReading, WeatherReading
+
 
 def process_bronze_to_silver(session: Session, tenant_id: UUID):
     """Applies data quality gates to raw telemetry and moves it to Silver."""

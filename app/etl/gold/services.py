@@ -1,8 +1,11 @@
 from uuid import UUID
-from sqlalchemy import select, func
+
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
-from app.etl.silver.models import SensorReading
+
 from app.etl.gold.models import GoldPumpFeatures
+from app.etl.silver.models import SensorReading
+
 
 def compute_and_store_gold_features(session: Session, tenant_id: UUID, pump_id: UUID) -> None:
     """Computes rolling window aggregations from Silver and inserts them into Gold."""

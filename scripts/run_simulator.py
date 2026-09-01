@@ -1,11 +1,14 @@
-import sys, time
+import sys
+import time
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.core.db import SessionLocal
-from app.tenant.models import Tenant
-from app.pump.models import Pump
 from app.etl.simulator.services import record_simulated_reading
+from app.pump.models import Pump
+from app.tenant.models import Tenant
+
 
 def run_stream():
     print("🚀 Starting KPC Telemetry Simulator. Press Ctrl+C to stop.")

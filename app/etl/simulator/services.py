@@ -1,8 +1,11 @@
-import numpy as np
 from datetime import datetime
 from uuid import UUID
+
+import numpy as np
 from sqlalchemy.orm import Session
+
 from app.etl.bronze.models import BronzePumpTelemetry
+
 
 def generate_live_reading(tenant_id: UUID, pump_id: str, wear_multiplier: float) -> dict:
     """Simulates a single sensor reading with progressive degradation for a specific tenant pump."""

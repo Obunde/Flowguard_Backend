@@ -1,9 +1,12 @@
 from datetime import datetime
 from uuid import UUID
-from sqlalchemy import Float, Integer, DateTime, ForeignKey
+
+from sqlalchemy import DateTime, Float, ForeignKey, Integer
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
-from app.core.base import Base, TenantScopedMixin, UUIDPrimaryKeyMixin, TimestampMixin
+
+from app.core.base import Base, TenantScopedMixin, TimestampMixin, UUIDPrimaryKeyMixin
+
 
 class BronzePumpTelemetry(Base, TenantScopedMixin, UUIDPrimaryKeyMixin, TimestampMixin):
     __tablename__ = "pump_telemetry"

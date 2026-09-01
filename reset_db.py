@@ -1,5 +1,7 @@
 from sqlalchemy import create_engine, text
+
 from app.core.config import settings
+
 
 def reset_database():
     engine = create_engine(str(settings.database_url), isolation_level="AUTOCOMMIT")

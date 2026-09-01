@@ -1,6 +1,7 @@
 import time
-import numpy as np
 from datetime import datetime
+
+import numpy as np
 from sqlalchemy import create_engine, text
 
 # Updated with the URL-encoded password

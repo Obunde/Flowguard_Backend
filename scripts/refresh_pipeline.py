@@ -1,13 +1,20 @@
-import sys, time
+import sys
+import time
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.core.db import SessionLocal
-from app.tenant.models import Tenant
+from app.etl.gold.services import compute_and_store_gold_features
+from app.etl.silver.services import (
+    fetch_and_store_regional_risk,
+    fetch_and_store_weather,
+    process_bronze_to_silver,
+)
 from app.pump.models import Pump
 from app.station.models import Station
-from app.etl.silver.services import process_bronze_to_silver, fetch_and_store_weather, fetch_and_store_regional_risk
-from app.etl.gold.services import compute_and_store_gold_features
+from app.tenant.models import Tenant
+
 
 def run_pipeline_cycle():
     with SessionLocal() as session:

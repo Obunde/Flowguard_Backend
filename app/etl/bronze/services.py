@@ -1,7 +1,10 @@
 from uuid import UUID
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+
 from app.etl.bronze.models import BronzePumpTelemetry
+
 
 def ingest_telemetry_reading(session: Session, tenant_id: UUID, reading_data: dict) -> BronzePumpTelemetry:
     """Inserts a single raw sensor reading into the Bronze storage, securely scoped to the tenant."""
