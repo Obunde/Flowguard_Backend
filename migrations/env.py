@@ -7,7 +7,8 @@ autogenerate diffs against the exact same metadata the app runs on.
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import engine_from_config, pool
+# FIX 1: Added `text` to the sqlalchemy imports
+from sqlalchemy import engine_from_config, pool, text
 
 # Import every module's models so they register on Base.metadata before
 # autogenerate runs. Add a line here whenever a new module gets models.py.
@@ -70,6 +71,13 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
+        # FIX 2: Create schemas dynamically so the CI pipeline doesn't crash
+        connection.execute(text("CREATE SCHEMA IF NOT EXISTS master;"))
+        connection.execute(text("CREATE SCHEMA IF NOT EXISTS bronze;"))
+        connection.execute(text("CREATE SCHEMA IF NOT EXISTS silver;"))
+        connection.execute(text("CREATE SCHEMA IF NOT EXISTS gold;"))
+        connection.commit()
+
         context.configure(
             connection=connection, 
             target_metadata=target_metadata,
