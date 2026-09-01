@@ -7,6 +7,7 @@ autogenerate diffs against the exact same metadata the app runs on.
 from logging.config import fileConfig
 
 from alembic import context
+
 # FIX 1: Added `text` to the sqlalchemy imports
 from sqlalchemy import engine_from_config, pool, text
 
