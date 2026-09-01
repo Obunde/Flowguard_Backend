@@ -27,7 +27,7 @@ def run_stream():
                 for pid in pump_ids:
                     wear = wear_tracker[pid]
                     reading = record_simulated_reading(db, tenant.id, pid, wear)
-                    print(f"[{reading.timestamp.strftime('%H:%M:%S')}] 📡 {reading.pump_id} | Vib: {reading.vibration_axial_mm_s} mm/s | Temp: {reading.temperature_bearing_c}°C")
+                    print(f"[{reading.timestamp.strftime('%H:%M:%S')}] 📡 {reading.pump_id} | Vib: {reading.vibration_axial_mm_s} mm/s | Temp: {reading.temperature_bearing_c}°C")  # noqa: E501
                     
                     wear_tracker[pid] += 0.005
                     if wear_tracker[pid] > 1.0: wear_tracker[pid] = 0.0

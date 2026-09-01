@@ -49,7 +49,7 @@ def stream_data():
             with engine.begin() as conn:
                 conn.execute(insert_query, reading)
                 
-            print(f"[{reading['timestamp']}] 📡 Inserted {reading['pump_id']} | Vib: {reading['vibration_axial_mm_s']} | Temp: {reading['temperature_bearing_c']}")
+            print(f"[{reading['timestamp']}] 📡 Inserted {reading['pump_id']} | Vib: {reading['vibration_axial_mm_s']} | Temp: {reading['temperature_bearing_c']}")  # noqa: E501
             
             degradation += 0.005 # Simulate progressive wear
             if degradation > 1.0:
