@@ -1,42 +1,68 @@
-import time
-from sqlalchemy import create_engine, text, select
-from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.exc import SQLAlchemyError
-from app.etl.gold.models import GoldMLFeatures
+from uuid import UUID
+from sqlalchemy import select, func
+from sqlalchemy.orm import Session
+from app.etl.silver.models import SensorReading
+from app.etl.gold.models import GoldPumpFeatures
 
-def run_micro_batch(session: Session):
-    """Orchestrates the periodic refresh of the Gold ML features view."""
-    print("⚙️ Starting Pipeline Orchestrator. Press Ctrl+C to stop.")
-    refresh_query = text("REFRESH MATERIALIZED VIEW gold_ml_features;")
+def compute_and_store_gold_features(session: Session, tenant_id: UUID, pump_id: UUID) -> None:
+    """Computes rolling window aggregations from Silver and inserts them into Gold."""
     
-    while True:
-        try:
-            print(f"[{time.strftime('%H:%M:%S')}] Refreshing Gold Materialized View...")
-            session.execute(refresh_query)
-            session.commit()
-            print("✅ Refresh complete. Dashboard and ML views updated.")
-            time.sleep(15)
-        except KeyboardInterrupt:
-            print("\n🛑 Orchestrator stopped.")
-            break
-        except SQLAlchemyError as e:
-            session.rollback()
-            print(f"Database Error: {e}")
-            time.sleep(15)
-        except Exception as e:
-            print(f"Pipeline Error: {e}")
-            time.sleep(15)
+    # Define reusable window arguments as a dictionary to unpack
+    window_kwargs = {
+        "partition_by": SensorReading.pump_id,
+        "order_by": SensorReading.timestamp.asc(),
+        "rows": (-2, 0)
+    }
 
-def get_ml_features(session: Session, pump_id: str, limit: int = 50):
-    """Retrieves the aggregated rolling averages and failure risk metrics."""
-    stmt = select(GoldMLFeatures).where(
-        GoldMLFeatures.pump_id == pump_id
-    ).order_by(GoldMLFeatures.timestamp.desc()).limit(limit)
-    return session.scalars(stmt).all()
+    query = (
+        select(
+            SensorReading.timestamp,
+            SensorReading.pump_id,
+            SensorReading.vibration_axial_mm_s,
+            SensorReading.temperature_bearing_c,
+            SensorReading.pressure_discharge_psi,
+            SensorReading.motor_current_amps,
+            func.avg(SensorReading.vibration_axial_mm_s).over(**window_kwargs).label("vib_avg"),
+            func.stddev(SensorReading.vibration_axial_mm_s).over(**window_kwargs).label("vib_std"),
+            func.avg(SensorReading.temperature_bearing_c).over(**window_kwargs).label("temp_avg"),
+            func.max(SensorReading.temperature_bearing_c).over(**window_kwargs).label("temp_max"),
+            func.avg(SensorReading.pressure_discharge_psi).over(**window_kwargs).label("press_avg"),
+            SensorReading.rul_hours,
+            SensorReading.failure_risk_7_day,
+        )
+        .where(SensorReading.tenant_id == tenant_id, SensorReading.pump_id == pump_id)
+        .order_by(SensorReading.timestamp.desc())
+        .limit(100)
+    )
 
-# Execution entry point
-if __name__ == "__main__":
-    engine = create_engine('postgresql://postgres:Kabarnet%409@localhost:5432/kpc_predictive_maintenance')
-    SessionLocal = sessionmaker(bind=engine)
-    with SessionLocal() as db_session:
-        run_micro_batch(db_session)
+    results = session.execute(query).all()
+
+    gold_records = [
+        GoldPumpFeatures(
+            tenant_id=tenant_id,
+            timestamp=row.timestamp,
+            pump_id=row.pump_id,
+            vibration_axial_mm_s=row.vibration_axial_mm_s,
+            temperature_bearing_c=row.temperature_bearing_c,
+            pressure_discharge_psi=row.pressure_discharge_psi,
+            motor_current_amps=row.motor_current_amps,
+            vibration_axial_rolling_avg=row.vib_avg,
+            vibration_axial_rolling_std=row.vib_std or 0.0,
+            temperature_bearing_rolling_avg=row.temp_avg,
+            temperature_bearing_rolling_max=row.temp_max,
+            pressure_discharge_rolling_avg=row.press_avg,
+            rul_hours=row.rul_hours,
+            failure_risk_7_day=row.failure_risk_7_day,
+        )
+        for row in reversed(results)
+    ]
+
+    if gold_records:
+        session.add_all(gold_records)
+        session.commit()
+
+def get_ml_features(session: Session, tenant_id: UUID, pump_id: UUID, limit: int = 50) -> list[GoldPumpFeatures]:
+    stmt = select(GoldPumpFeatures).where(
+        GoldPumpFeatures.tenant_id == tenant_id, GoldPumpFeatures.pump_id == pump_id
+    ).order_by(GoldPumpFeatures.timestamp.desc()).limit(limit)
+    return list(session.scalars(stmt).all())

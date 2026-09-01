@@ -1,25 +1,52 @@
 # app/etl/__init__.py
 
 # 1. Import Bronze Layer components
-from .bronze import BronzePumpTelemetry, ingest_telemetry_reading, get_raw_telemetry
+from .bronze import (
+    BronzePumpTelemetry, 
+    BronzeWeatherAPI, 
+    BronzeRegionalRisk, 
+    ingest_telemetry_reading, 
+    get_raw_telemetry
+)
 
 # 2. Import Silver Layer components
-from .silver import SilverPumpTelemetry, get_cleaned_telemetry
+from .silver import (
+    SensorReading, 
+    WeatherReading, 
+    RegionalRiskScore, 
+    process_bronze_to_silver, 
+    get_cleaned_telemetry,
+    fetch_and_store_weather,
+    fetch_and_store_regional_risk
+)
 
 # 3. Import Gold Layer components
-from .gold import GoldMLFeatures, run_micro_batch, get_ml_features
+from .gold import (
+    GoldPumpFeatures, 
+    compute_and_store_gold_features, 
+    get_ml_features
+)
 
 # Expose them all cleanly to the rest of the application
 __all__ = [
-    # Models
+    # Bronze Models & Services
     "BronzePumpTelemetry",
-    "SilverPumpTelemetry",
-    "GoldMLFeatures",
-    
-    # Services
+    "BronzeWeatherAPI",
+    "BronzeRegionalRisk",
     "ingest_telemetry_reading",
     "get_raw_telemetry",
+    
+    # Silver Models & Services
+    "SensorReading",
+    "WeatherReading",
+    "RegionalRiskScore",
+    "process_bronze_to_silver",
     "get_cleaned_telemetry",
-    "run_micro_batch",
+    "fetch_and_store_weather",
+    "fetch_and_store_regional_risk",
+    
+    # Gold Models & Services
+    "GoldPumpFeatures",
+    "compute_and_store_gold_features",
     "get_ml_features"
 ]

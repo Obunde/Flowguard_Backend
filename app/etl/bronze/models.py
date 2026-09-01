@@ -1,25 +1,36 @@
 from datetime import datetime
-from sqlalchemy import String, Float, Integer, DateTime
+from uuid import UUID
+from sqlalchemy import Float, Integer, DateTime, ForeignKey
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy.sql import func
-from app.core.base import Base # Assuming your Base declarative class is here
+from app.core.base import Base, TenantScopedMixin, UUIDPrimaryKeyMixin, TimestampMixin
 
-class BronzePumpTelemetry(Base):
-    __tablename__ = "bronze_pump_telemetry"
+class BronzePumpTelemetry(Base, TenantScopedMixin, UUIDPrimaryKeyMixin, TimestampMixin):
+    __tablename__ = "pump_telemetry"
+    __table_args__ = {'schema': 'bronze'}
+    timestamp: Mapped[datetime] = mapped_column(DateTime, index=True)
+    pump_id: Mapped[UUID] = mapped_column(ForeignKey("master.pump.id"), index=True)
+    vibration_axial_mm_s: Mapped[float] = mapped_column(Float)
+    vibration_radial_mm_s: Mapped[float] = mapped_column(Float)
+    temperature_bearing_c: Mapped[float] = mapped_column(Float)
+    temperature_casing_c: Mapped[float] = mapped_column(Float)
+    pressure_suction_psi: Mapped[float] = mapped_column(Float)
+    pressure_discharge_psi: Mapped[float] = mapped_column(Float)
+    motor_current_amps: Mapped[float] = mapped_column(Float)
+    motor_voltage_v: Mapped[float] = mapped_column(Float)
+    rul_hours: Mapped[int] = mapped_column(Integer)
+    failure_risk_7_day: Mapped[int] = mapped_column(Integer)
 
-    # SQLAlchemy requires a primary key
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    
-    timestamp: Mapped[datetime] = mapped_column(DateTime, nullable=True)
-    pump_id: Mapped[str] = mapped_column(String(50), nullable=True)
-    vibration_axial_mm_s: Mapped[float] = mapped_column(Float, nullable=True)
-    vibration_radial_mm_s: Mapped[float] = mapped_column(Float, nullable=True)
-    temperature_bearing_c: Mapped[float] = mapped_column(Float, nullable=True)
-    temperature_casing_c: Mapped[float] = mapped_column(Float, nullable=True)
-    pressure_suction_psi: Mapped[float] = mapped_column(Float, nullable=True)
-    pressure_discharge_psi: Mapped[float] = mapped_column(Float, nullable=True)
-    motor_current_amps: Mapped[float] = mapped_column(Float, nullable=True)
-    motor_voltage_v: Mapped[float] = mapped_column(Float, nullable=True)
-    rul_hours: Mapped[int] = mapped_column(Integer, nullable=True)
-    failure_risk_7_day: Mapped[int] = mapped_column(Integer, nullable=True)
-    ingestion_timestamp: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+class BronzeWeatherAPI(Base, TenantScopedMixin, UUIDPrimaryKeyMixin, TimestampMixin):
+    __tablename__ = "weather_api"
+    __table_args__ = {'schema': 'bronze'}
+    timestamp: Mapped[datetime] = mapped_column(DateTime, index=True)
+    station_id: Mapped[UUID] = mapped_column(ForeignKey("master.station.id"), index=True)
+    raw_payload: Mapped[dict] = mapped_column(JSONB)
+
+class BronzeRegionalRisk(Base, TenantScopedMixin, UUIDPrimaryKeyMixin, TimestampMixin):
+    __tablename__ = "regional_risk"
+    __table_args__ = {'schema': 'bronze'}
+    timestamp: Mapped[datetime] = mapped_column(DateTime, index=True)
+    station_id: Mapped[UUID] = mapped_column(ForeignKey("master.station.id"), index=True)
+    raw_payload: Mapped[dict] = mapped_column(JSONB)

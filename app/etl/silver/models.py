@@ -1,18 +1,14 @@
 from datetime import datetime
-from sqlalchemy import String, Float, Integer, DateTime
+from uuid import UUID
+from sqlalchemy import Float, Integer, DateTime, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
-from app.core.base import Base
+from app.core.base import Base, TenantScopedMixin, UUIDPrimaryKeyMixin, TimestampMixin
 
-class SilverPumpTelemetry(Base):
-    __tablename__ = "silver_pump_telemetry"
-    # Note: Alembic/SQLAlchemy shouldn't generate migration scripts for this automatically.
-    # The view creation requires raw SQL in your migration files.
-
-    # We map a primary key purely for SQLAlchemy's internal object mapping
-    id: Mapped[int] = mapped_column(primary_key=True) 
-    
-    timestamp: Mapped[datetime] = mapped_column(DateTime)
-    pump_id: Mapped[str] = mapped_column(String(50))
+class SensorReading(Base, TenantScopedMixin, UUIDPrimaryKeyMixin, TimestampMixin):
+    __tablename__ = "sensor_reading"
+    __table_args__ = {'schema': 'silver'}
+    timestamp: Mapped[datetime] = mapped_column(DateTime, index=True)
+    pump_id: Mapped[UUID] = mapped_column(ForeignKey("master.pump.id"), index=True)
     vibration_axial_mm_s: Mapped[float] = mapped_column(Float)
     vibration_radial_mm_s: Mapped[float] = mapped_column(Float)
     temperature_bearing_c: Mapped[float] = mapped_column(Float)
@@ -23,3 +19,21 @@ class SilverPumpTelemetry(Base):
     motor_voltage_v: Mapped[float] = mapped_column(Float)
     rul_hours: Mapped[int] = mapped_column(Integer)
     failure_risk_7_day: Mapped[int] = mapped_column(Integer)
+
+class WeatherReading(Base, TenantScopedMixin, UUIDPrimaryKeyMixin, TimestampMixin):
+    __tablename__ = "weather_reading"
+    __table_args__ = {'schema': 'silver'}
+    timestamp: Mapped[datetime] = mapped_column(DateTime, index=True)
+    station_id: Mapped[UUID] = mapped_column(ForeignKey("master.station.id"), index=True)
+    temperature_c: Mapped[float] = mapped_column(Float)
+    precipitation_mm: Mapped[float] = mapped_column(Float)
+    wind_speed_m_s: Mapped[float] = mapped_column(Float)
+    humidity_percent: Mapped[float] = mapped_column(Float)
+
+class RegionalRiskScore(Base, TenantScopedMixin, UUIDPrimaryKeyMixin, TimestampMixin):
+    __tablename__ = "regional_risk_score"
+    __table_args__ = {'schema': 'silver'}
+    timestamp: Mapped[datetime] = mapped_column(DateTime, index=True)
+    station_id: Mapped[UUID] = mapped_column(ForeignKey("master.station.id"), index=True)
+    composite_risk_score: Mapped[float] = mapped_column(Float)
+    incident_count_30d: Mapped[int] = mapped_column(Integer)
