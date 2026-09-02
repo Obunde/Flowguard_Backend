@@ -28,7 +28,8 @@ def _ensure_pump(db_session: Session, tenant_id: uuid.UUID) -> str:
     # 2. If not, build a dummy Station and Pump for the test
     station = db_session.scalar(select(Station).where(Station.tenant_id == tenant_id).limit(1))
     if not station:
-        station = Station(tenant_id=tenant_id, name="Test Station")
+        # FIX: Added required 'code' field to satisfy NotNull constraint
+        station = Station(tenant_id=tenant_id, name="Test Station", code="TS-01")
         db_session.add(station)
         db_session.flush()
         
