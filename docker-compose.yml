@@ -53,7 +53,7 @@ services:
 
   seed:
     build: .
-    command: ["python", "scripts/seed_kpc_tenant.py"]
+    command: ["sh", "-c", "python scripts/seed_platform_admin.py && python scripts/seed_kpc_tenant.py"]
     environment: *app_env
     depends_on:
       db:
