@@ -14,10 +14,34 @@ from app.etl.bronze.models import BronzePumpTelemetry
 from app.etl.gold import services as gold_services
 from app.etl.silver import services as silver_services
 from app.etl.simulator import services as simulator_services
+from app.pump.models import Pump
+from app.station.models import Station
+
+
+def _ensure_pump(db_session: Session, tenant_id: uuid.UUID) -> str:
+    """Helper to guarantee a pump exists to satisfy Bronze FK constraints."""
+    # 1. Check if the Pytest fixtures already built a pump
+    pump = db_session.scalar(select(Pump).where(Pump.tenant_id == tenant_id).limit(1))
+    if pump:
+        return str(pump.id)
+        
+    # 2. If not, build a dummy Station and Pump for the test
+    station = db_session.scalar(select(Station).where(Station.tenant_id == tenant_id).limit(1))
+    if not station:
+        station = Station(tenant_id=tenant_id, name="Test Station")
+        db_session.add(station)
+        db_session.flush()
+        
+    new_pump = Pump(tenant_id=tenant_id, station_id=station.id, tag="SMOKE-PUMP")
+    db_session.add(new_pump)
+    db_session.commit()
+    return str(new_pump.id)
 
 
 def test_bronze_landing_is_tenant_scoped(db_session: Session, tenant_a, tenant_b):
-    pump_id = str(uuid.uuid4())
+    # FIX: Ensure a real pump exists so we don't violate foreign key constraints
+    pump_id = _ensure_pump(db_session, tenant_a.id)
+    
     reading_data = {
         "timestamp": datetime.now(UTC),
         "pump_id": pump_id,
@@ -52,19 +76,19 @@ def test_bronze_landing_is_tenant_scoped(db_session: Session, tenant_a, tenant_b
 
 
 def test_silver_conforming_smoke(db_session: Session, tenant_a):
-    # Now that Silver is implemented, just ensure the pipeline runs without crashing
     silver_services.process_bronze_to_silver(db_session, tenant_a.id)
 
 
 def test_gold_aggregation_smoke(db_session: Session, tenant_a):
-    # Now that Gold is implemented, ensure the pipeline runs without crashing
     gold_services.compute_and_store_gold_features(
         db_session, tenant_a.id, uuid.uuid4()
     )
 
 
 def test_simulator_smoke(db_session: Session, tenant_a):
-    # Now that Simulator is implemented, ensure it runs without crashing
+    # FIX: Provide a real pump ID to the simulator
+    pump_id = _ensure_pump(db_session, tenant_a.id)
+    
     simulator_services.record_simulated_reading(
-        db_session, tenant_a.id, str(uuid.uuid4()), wear_multiplier=0.1
+        db_session, tenant_a.id, pump_id, wear_multiplier=0.1
     )
