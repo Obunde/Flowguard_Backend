@@ -32,8 +32,8 @@ def _ensure_pump(db_session: Session, tenant_id: uuid.UUID) -> str:
         db_session.add(station)
         db_session.flush()
         
-    # FIX: Removed the invalid `tag` argument.
-    new_pump = Pump(tenant_id=tenant_id, station_id=station.id)
+    # FIX: Re-added the tag using the correct column name 'tag_number'
+    new_pump = Pump(tenant_id=tenant_id, station_id=station.id, tag_number="SMOKE-PUMP")
     db_session.add(new_pump)
     db_session.commit()
     return str(new_pump.id)
