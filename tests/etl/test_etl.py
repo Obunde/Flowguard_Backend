@@ -28,12 +28,12 @@ def _ensure_pump(db_session: Session, tenant_id: uuid.UUID) -> str:
     # 2. If not, build a dummy Station and Pump for the test
     station = db_session.scalar(select(Station).where(Station.tenant_id == tenant_id).limit(1))
     if not station:
-        # FIX: Added required 'code' field to satisfy NotNull constraint
         station = Station(tenant_id=tenant_id, name="Test Station", code="TS-01")
         db_session.add(station)
         db_session.flush()
         
-    new_pump = Pump(tenant_id=tenant_id, station_id=station.id, tag="SMOKE-PUMP")
+    # FIX: Removed the invalid `tag` argument.
+    new_pump = Pump(tenant_id=tenant_id, station_id=station.id)
     db_session.add(new_pump)
     db_session.commit()
     return str(new_pump.id)
