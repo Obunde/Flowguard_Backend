@@ -86,6 +86,20 @@ def db_session():
                 conn.execute(table.delete())
 
 
+@pytest.fixture(autouse=True)
+def sent_emails(monkeypatch) -> list[dict]:
+    """Capture onboarding emails instead of hitting SMTP. Autouse so no test
+    can accidentally make a real send; return value is the list of messages
+    (dicts with to/subject/body) for tests that want to assert on them."""
+    captured: list[dict] = []
+
+    def _capture(*, to: str, subject: str, body: str) -> None:
+        captured.append({"to": to, "subject": subject, "body": body})
+
+    monkeypatch.setattr("app.core.email.send_email", _capture)
+    return captured
+
+
 @pytest.fixture()
 def client(db_session: Session):
     def _get_db_override():
@@ -133,13 +147,34 @@ def station_b(db_session: Session, tenant_b: Tenant) -> Station:
     return station
 
 
-def make_user(db_session: Session, tenant: Tenant, role: UserRole = UserRole.ADMIN) -> User:
+def make_user(
+    db_session: Session,
+    tenant: Tenant,
+    role: UserRole = UserRole.ADMIN,
+    *,
+    must_reset_password: bool = False,
+) -> User:
     user = User(
         tenant_id=tenant.id,
         email=f"user-{uuid.uuid4().hex[:8]}@example.com",
         hashed_password=hash_password("password123"),
         full_name="Test User",
         role=role,
+        must_reset_password=must_reset_password,
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    return user
+
+
+def make_platform_admin(db_session: Session) -> User:
+    user = User(
+        tenant_id=None,
+        email=f"platform-{uuid.uuid4().hex[:8]}@flow.com",
+        hashed_password=hash_password("password123"),
+        full_name="Platform Admin",
+        role=UserRole.PLATFORM_ADMIN,
     )
     db_session.add(user)
     db_session.commit()
@@ -162,6 +197,16 @@ def user_a(db_session: Session, tenant_a: Tenant) -> User:
 @pytest.fixture()
 def user_b(db_session: Session, tenant_b: Tenant) -> User:
     return make_user(db_session, tenant_b)
+
+
+@pytest.fixture()
+def platform_admin(db_session: Session) -> User:
+    return make_platform_admin(db_session)
+
+
+@pytest.fixture()
+def platform_admin_headers(platform_admin: User) -> dict[str, str]:
+    return auth_headers(platform_admin)
 
 
 @pytest.fixture()
