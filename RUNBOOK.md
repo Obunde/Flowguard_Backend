@@ -53,6 +53,9 @@ pip install -r requirements.txt
 # Run Alembic migrations to build schema
 alembic upgrade head
 
+# Seed the platform admin account (onboards tenants; not tenant-scoped)
+python scripts/seed_platform_admin.py
+
 # Seed KPC anchor tenant reference data (13 stations + pump fleet)
 python scripts/seed_kpc_tenant.py
 ```
@@ -65,7 +68,8 @@ uv sync
 # Run database migrations
 uv run alembic upgrade head
 
-# Seed anchor tenant data
+# Seed the platform admin, then anchor tenant data
+uv run python scripts/seed_platform_admin.py
 uv run python scripts/seed_kpc_tenant.py
 ```
 
@@ -115,8 +119,8 @@ The backend architecture enforces vertical entity isolation and mandatory multi-
 
 | Module | Track | Description | Key Endpoint Prefix |
 | :--- | :--- | :--- | :--- |
-| `tenant` | Track A | Multi-tenant branding, fluid properties, thresholds | `/api/v1/tenants` |
-| `user` | Track A | User management, roles, JWT authentication | `/api/v1/users` |
+| `tenant` | Track A | Tenant onboarding/branding/thresholds; platform-admin gated; creates the tenant's first `admin` | `/api/v1/tenants` |
+| `user` | Track A | Invite-only user onboarding, roles, JWT login, forced first-login password reset | `/api/v1/users` |
 | `station` | Track B | Pump station reference data (PS1–PS13) | `/api/v1/stations` |
 | `pump` | Track B | Pump reference data & lifecycle metadata | `/api/v1/pumps` |
 | `etl` | Shared | Medallion architecture (bronze/silver/gold) | Internal ETL |
@@ -145,8 +149,16 @@ To reset local test data cleanly:
 ```bash
 alembic downgrade base
 alembic upgrade head
+python scripts/seed_platform_admin.py
 python scripts/seed_kpc_tenant.py
 ```
+
+### Onboarding a Tenant and Its Users
+
+1. Log in as the platform admin (`POST /api/v1/users/login`, default `platform.admin@flow.com` / `Admin@123`).
+2. `POST /api/v1/tenants` with the tenant config plus `admin_email` / `admin_full_name`. This creates the tenant and its first `admin` user and emails that admin a first-time password (SMTP must be configured, or the call returns `503` with the tenant still created).
+3. The tenant admin logs in with the emailed password → gets `reset_required: true` + a `reset_token` → `POST /api/v1/users/reset-password` to set a real password.
+4. The tenant admin invites more users via `POST /api/v1/users` (`email`, `full_name`, `role`); each follows the same first-login reset flow.
 
 ### Pre-Commit Security Checklist
 Before committing or pushing to GitHub:

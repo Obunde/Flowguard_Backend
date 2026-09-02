@@ -35,7 +35,7 @@ Flowguard introduces continuous, data-driven risk assessment:
 
 - **Core Framework:** FastAPI, Pydantic v2
 - **ORM & Database:** SQLAlchemy 2.0, Alembic migrations, PostgreSQL (with SQLite in-memory fallback for testing)
-- **Authentication & Security:** Multi-tenant JWT auth (`X-Tenant-ID` scoping), bcrypt password hashing
+- **Authentication & Security:** Multi-tenant JWT auth (tenant + role claims carried in the token), bcrypt password hashing, invite-only onboarding with forced first-login password reset
 - **Testing & Tooling:** Pytest, pytest-cov, Ruff, `uv` / standard `venv`
 
 ### Architecture Rules
@@ -44,6 +44,16 @@ Flowguard introduces continuous, data-driven risk assessment:
 3. **Mandatory Multi-Tenancy:** Every tenant-scoped table inherits `TenantScopedMixin` (`tenant_id` FK). No route can query across tenants.
 4. **Medallion ETL Pipeline:** `app/etl` (`bronze` \(\rightarrow\) `silver` \(\rightarrow\) `gold`) manages telemetry ingestion separately from entity reference data.
 5. **Zero Secrets in Code:** Configured strictly via `app/core/config.py` from `.env`. `.env` is git-ignored.
+
+### Roles & Onboarding
+
+| Role | Scope | Responsibilities |
+| :--- | :--- | :--- |
+| `platform_admin` | Cross-tenant (no `tenant_id`) | Seeded once (`scripts/seed_platform_admin.py`). Onboards & manages tenants; blocked from every tenant-scoped route. |
+| `admin` | Single tenant | Created automatically when a tenant is onboarded. Onboards & manages that tenant's users. |
+| `planner` / `technician` / `viewer` | Single tenant | Operational users invited by their tenant `admin`. |
+
+**Onboarding flow** (identical for tenants and users): the inviter supplies an email; the system creates the account with a random first-time password and emails it via SMTP (`app/core/email.py`). On first login the account receives only a short-lived **reset token** (`POST /api/v1/users/login` → `reset_required: true`); it must call `POST /api/v1/users/reset-password` to set a real password before any access token is issued.
 
 ---
 
@@ -85,10 +95,13 @@ pip install -r requirements.txt   # or `uv sync`
 # 3. Execute database migrations
 alembic upgrade head
 
-# 4. Seed KPC anchor tenant data
+# 4. Seed the platform admin (platform.admin@flow.com / Admin@123 by default)
+python scripts/seed_platform_admin.py
+
+# 5. Seed KPC anchor tenant reference data (stations + pump fleet)
 python scripts/seed_kpc_tenant.py
 
-# 5. Start API server
+# 6. Start API server
 uvicorn app.main:app --reload
 ```
 
