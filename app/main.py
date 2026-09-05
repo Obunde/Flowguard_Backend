@@ -3,15 +3,18 @@
 This is the only place that imports every module's `routes` — modules never
 import each other's routes. Adding a new module means adding one line here.
 """
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.alert.routes import router as alert_router
+from app.auth_session.routes import router as auth_router
 from app.core.config import settings
 from app.core.middleware import add_middleware
 from app.explainability.routes import router as explainability_router
 from app.maintenance_schedule.routes import router as maintenance_schedule_router
 from app.model_metrics.routes import router as model_metrics_router
+from app.operations.routes import router as operations_router
 from app.prediction.routes import router as prediction_router
 from app.pump.routes import router as pump_router
 from app.rul.routes import router as rul_router
@@ -25,6 +28,8 @@ from app.work_order.routes import router as work_order_router
 # app.flowgard_engine. Nothing to register here for them.
 
 ALL_ROUTERS = (
+    auth_router,
+    operations_router,
     tenant_router,
     station_router,
     pump_router,

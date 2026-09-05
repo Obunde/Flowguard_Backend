@@ -6,6 +6,7 @@ per test session; each test gets a clean slate via a post-test truncate
 rather than transaction rollback, since service functions call `db.commit()`
 internally (a nested-SAVEPOINT scheme would fight that).
 """
+
 import uuid
 
 import pytest
@@ -43,7 +44,12 @@ from app.user.models import User, UserRole  # noqa: E402
 TEST_DATABASE_URL = settings.test_database_url or settings.database_url
 
 try:
-    engine = create_engine(TEST_DATABASE_URL, future=True)
+    engine = create_engine(
+        TEST_DATABASE_URL,
+        connect_args={"check_same_thread": False} if TEST_DATABASE_URL.startswith("sqlite") else {},
+        poolclass=StaticPool if TEST_DATABASE_URL.startswith("sqlite") else None,
+        future=True,
+    )
     with engine.connect() as conn:
         pass
 except Exception:

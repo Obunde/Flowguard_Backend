@@ -35,9 +35,30 @@ services:
       TEST_DATABASE_URL: postgresql+psycopg://flowgard:flowgard@db:5432/flowgard_test
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev-secret-change-me}
       CORS_ALLOW_ORIGINS: http://localhost:3000
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@flowgard.com}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-flowgard-demo}
+      SEED_ADMIN_FULL_NAME: ${SEED_ADMIN_FULL_NAME:-Flowgard Administrator}
+      SEED_PLANNER_EMAIL: ${SEED_PLANNER_EMAIL:-planner@flowgard.com}
+      SEED_PLANNER_PASSWORD: ${SEED_PLANNER_PASSWORD:-flowgard-planner}
+      SEED_TECHNICIAN_EMAIL: ${SEED_TECHNICIAN_EMAIL:-technician@flowgard.com}
+      SEED_TECHNICIAN_PASSWORD: ${SEED_TECHNICIAN_PASSWORD:-flowgard-technician}
+      SEED_VIEWER_EMAIL: ${SEED_VIEWER_EMAIL:-viewer@flowgard.com}
+      SEED_VIEWER_PASSWORD: ${SEED_VIEWER_PASSWORD:-flowgard-viewer}
     depends_on:
       db:
         condition: service_healthy
+
+  bootstrap:
+    build: .
+    command: ["python", "scripts/bootstrap_demo.py", "/demo/mockData.ts"]
+    environment:
+      <<: *app_env
+      DEMO_SNAPSHOT_PATH: /demo/mockData.ts
+    volumes:
+      - ../flowgard-web/data/mockData.ts:/demo/mockData.ts:ro
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
 
   api:
     build: .
@@ -48,8 +69,21 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      migrate:
+      bootstrap:
         condition: service_completed_successfully
+
+  frontend:
+    build:
+      context: ../flowgard-web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      BACKEND_URL: http://api:8000
+      COOKIE_SECURE: "false"
+    depends_on:
+      api:
+        condition: service_healthy
 
   seed:
     build: .

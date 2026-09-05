@@ -1,107 +1,185 @@
-# Flowguard — Predictive Maintenance Platform for KPC Pipeline Infrastructure
+# Flowguard — Predictive Maintenance
 
-> **Capstone Project:** Condition-Based Predictive Maintenance for KPC Pipeline Pump Infrastructure  
-> **Team NULL_TERMINATORS:** KPC Cohort, Inuka Fellowship, Power Learn Project
+Flowguard is a multi-tenant predictive-maintenance control room for pump infrastructure. It combines a FastAPI/PostgreSQL backend with a Next.js frontend for fleet risk monitoring, explainability, alerts, work orders, maintenance scheduling, model reporting, and administration.
 
----
+The included demonstration tenant uses a KPC-derived dataset contains 13 stations and 35 pumps. Its sensor readings are synthetic and physics-informed; the displayed classification, RUL, model metrics, HDI, and SHAP values are imported from the prototype snapshot. Do not use demo data for operational decisions.
 
-## 1. Executive Summary & Team NULL_TERMINATORS
+## Quick start
 
-Team **NULL_TERMINATORS** placed first in Hackathon 1 by developing a revenue reconciliation pipeline for Kenya Pipeline Company (KPC). This capstone extends that reconciliation methodology to unplanned pump failures across KPC's 1,342-kilometre pipeline network (Mombasa to Nairobi, Nakuru, Eldoret, and Kisumu), handling over 14 billion litres annually.
+### Prerequisites
 
-### Team Roles & Structure
-- **Silas Kibet** — Data Engineering Lead *(Pipeline, synthetic data generation, ETL)*
-- **Brian Kioko** — Modelling & Machine Learning Lead *(Hypothesis testing, feature engineering, ML models)*
-- **Ingrid Miriam** — Dashboard & Visualisation Lead *(Dashboarding, stakeholder views)*
-- **Eugene Obunde** — Storytelling & ROI Lead *(Briefs, executive narrative, business case)*
-- **Lameck Mugo** — Quality Assurance & Documentation Lead *(Testing, UAT notes, deployment readiness)*
+- Docker Engine with Docker Compose v2
+- Ports `3000`, `8000`, and `5433` available
 
----
+From this repository directory, start the complete stack:
 
-## 2. Problem Statement & Solution
-
-### The Problem
-Traditional time-based, fixed-interval maintenance causes unnecessary servicing of operational pumps while leaving units approaching mechanical degradation undetected. Historical incidents (such as 400,000 litres lost at Thange River in 2015 and 551,000 litres at Kiboko in 2018, valued at ~KES 63M) highlight the financial and safety risks of undetected failure.
-
-### The Solution
-Flowguard introduces continuous, data-driven risk assessment:
-1. **Daily Failure Classification:** Evaluates each pump against a 7-day failure risk window using rolling sensor features (vibration, temperature, pressure, motor current).
-2. **Remaining Useful Life (RUL):** Predicts RUL (in hours) for high-risk units to define precise service windows.
-3. **Condition-Based Work Orders & Scheduling:** Automatically prioritizes maintenance technician deployment and spare parts allocation.
-
----
-
-## 3. Technology Stack & Architecture
-
-- **Core Framework:** FastAPI, Pydantic v2
-- **ORM & Database:** SQLAlchemy 2.0, Alembic migrations, PostgreSQL (with SQLite in-memory fallback for testing)
-- **Authentication & Security:** Multi-tenant JWT auth (`X-Tenant-ID` scoping), bcrypt password hashing
-- **Testing & Tooling:** Pytest, pytest-cov, Ruff, `uv` / standard `venv`
-
-### Architecture Rules
-1. **Strict One-Way Dependency:** `routes` \(\rightarrow\) `services` \(\rightarrow\) `models` \(\rightarrow\) `database`.
-2. **Vertical Slice per Entity:** Organized under `app/<module>/` (`models.py`, `schemas.py`, `services.py`, `routes.py`).
-3. **Mandatory Multi-Tenancy:** Every tenant-scoped table inherits `TenantScopedMixin` (`tenant_id` FK). No route can query across tenants.
-4. **Medallion ETL Pipeline:** `app/etl` (`bronze` \(\rightarrow\) `silver` \(\rightarrow\) `gold`) manages telemetry ingestion separately from entity reference data.
-5. **Zero Secrets in Code:** Configured strictly via `app/core/config.py` from `.env`. `.env` is git-ignored.
-
----
-
-## 4. System Layout & Modules
-
-```
-app/
-├── core/                   # Config, DB session factory, JWT auth, tenancy mixins
-├── tenant/                 # Multi-tenant configuration (Track A)
-├── user/                   # User authentication & RBAC (Track A)
-├── station/                # Pump station reference data (Track B)
-├── pump/                   # Pump metadata & lifecycle parameters (Track B)
-├── etl/                    # Medallion pipeline: bronze -> silver -> gold -> simulator
-├── feature_engineering/    # Gold layer to model feature vectors (Track A)
-├── flowgard_engine/        # Pressure residual & Health Deviation Index (Track B)
-├── prediction/             # 7-day failure risk classification model (Track B)
-├── rul/                    # Remaining Useful Life regression engine (Track A)
-├── explainability/         # SHAP feature attributions & component decomposition (Track B)
-├── alert/                  # Threshold alerts & operational risks (Track A)
-├── work_order/             # Maintenance work orders & auto-generation (Track B)
-├── maintenance_schedule/   # RUL-ranked prioritised calendar (Track A)
-└── model_metrics/          # Model accuracy, confusion matrix & metrics (Track A)
-```
-
----
-
-## 5. Quickstart & Deployment
-
-Refer to [RUNBOOK.md](RUNBOOK.md) for detailed deployment workflows.
-
-### Installation
 ```bash
-# 1. Clone repository & configure environment
+docker compose up --build -d
+docker compose ps
+```
+
+Compose starts the services in dependency order:
+
+```text
+PostgreSQL → Alembic migrations → demo bootstrap → FastAPI → Next.js
+```
+
+Open:
+
+- Application: http://localhost:3000
+- API documentation: http://localhost:8000/docs
+- API health check: http://localhost:8000/health
+- PostgreSQL from the host: `localhost:5433`
+
+Default local demo credentials (when not overridden in `.env`):
+
+```text
+Admin: admin@flowgard.com / flowgard-demo
+Planner: planner@flowgard.com / flowgard-planner
+Technician: technician@flowgard.com / flowgard-technician
+Viewer: viewer@flowgard.com / flowgard-viewer
+```
+
+These credentials are for local demonstration only. Override `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`, and `JWT_SECRET_KEY` before using a shared or deployed environment.
+
+Stop the stack:
+
+```bash
+docker compose down
+```
+
+To remove containers **and permanently delete the local PostgreSQL volume**:
+
+```bash
+docker compose down -v
+```
+
+## Configuration
+
+Docker Compose has development defaults, so copying an environment file is optional for the first local run. For custom configuration:
+
+```bash
 cp .env.example .env
-
-# 2. Install dependencies
-pip install -r requirements.txt   # or `uv sync`
-
-# 3. Execute database migrations
-alembic upgrade head
-
-# 4. Seed KPC anchor tenant data
-python scripts/seed_kpc_tenant.py
-
-# 5. Start API server
-uvicorn app.main:app --reload
 ```
 
-- **Interactive API Docs:** `http://localhost:8000/docs`
-- **Health Endpoint:** `http://localhost:8000/health`
+At minimum, review:
 
----
+- `DATABASE_URL`
+- `JWT_SECRET_KEY`
+- `JWT_ACCESS_TOKEN_EXPIRE_MINUTES`
+- `JWT_REFRESH_TOKEN_EXPIRE_DAYS`
+- `SEED_ADMIN_EMAIL`
+- `SEED_ADMIN_PASSWORD`
+- `CORS_ALLOW_ORIGINS`
+- `SMTP_*` settings
 
-## 6. Testing & Quality Assurance
+If `SMTP_HOST` and `SMTP_FROM_EMAIL` are absent, Flowguard reports email digest delivery as unavailable and disables the digest action in the UI.
 
-Run unit tests across all 13 modules:
+## Architecture
+
+| Service | Responsibility |
+| --- | --- |
+| `db` | PostgreSQL 16 persistence |
+| `migrate` | One-shot Alembic schema migration |
+| `bootstrap` | Idempotent KPC snapshot and initial-admin import |
+| `api` | FastAPI REST API on port 8000 |
+| `frontend` | Next.js application on port 3000 |
+
+Backend modules follow a vertical-slice structure:
+
+```text
+app/
+├── auth_session/           # Login, refresh rotation, logout, current session
+├── operations/             # Dashboard aggregates, capabilities, automation, digest, export
+├── tenant/                 # Tenant configuration and branding
+├── user/                   # User management and role-based access
+├── station/                # Station reference data
+├── pump/                   # Pump metadata
+├── etl/                    # Bronze/silver/gold telemetry pipeline foundations
+├── prediction/             # Persisted failure-risk predictions
+├── rul/                    # Persisted remaining-useful-life estimates
+├── explainability/         # SHAP and component attribution
+├── alert/                  # Alert lifecycle
+├── work_order/             # Work-order lifecycle and prediction-based generation
+├── maintenance_schedule/   # Maintenance calendar
+└── model_metrics/          # Model evaluation metrics
+```
+
+The browser communicates with Next.js route handlers. The Next.js backend-for-frontend stores access and refresh tokens in HTTP-only cookies, proxies requests to FastAPI, and rotates expired access sessions through the refresh endpoint.
+
+## Available application features
+
+- Authenticated dashboard and pump fleet
+- Station network and pump detail views
+- HDI, SHAP, component attribution, and model quality views
+- Persisted alerts with generation and acknowledgement
+- Persisted work orders with closing and CSV export
+- Automatic maintenance schedule generation and confirmation
+- Tenant settings
+- Admin user creation, role assignment, enabling, and disabling
+- Role-gated backend mutations
+- SMTP alert digest when SMTP is configured
+
+The `/api/v1/capabilities` endpoint is the source of truth for optional integrations. Live SCADA ingestion and live model/RUL inference are not supplied by the demo stack and are reported unavailable.
+
+## Authentication and roles
+
+Authentication endpoints:
+
+- `POST /api/v1/auth/login`
+- `POST /api/v1/auth/refresh`
+- `POST /api/v1/auth/logout`
+- `GET /api/v1/auth/me`
+
+Supported roles are `admin`, `planner`, `technician`, and `viewer`. Tenant identity is derived from the signed access token; clients do not select tenants with an `X-Tenant-ID` header.
+
+| Role | Read operations | Alerts | Work orders | Schedule | Models | Assets/tenant/users |
+| --- | --- | --- | --- | --- | --- | --- |
+| Admin | Yes | Manage | Manage | Manage | Run and manage | Manage |
+| Planner | Yes | Manage | Manage | Manage | Run | No |
+| Technician | Yes | Acknowledge/manage | Manage | Read | Read | No |
+| Viewer | Yes | Read | Read/export | Read | Read | No |
+
+Permissions are checked by FastAPI on every protected mutation. Active status and current role are revalidated from the database on each authenticated request, so disabling an account takes effect immediately.
+
+## Useful commands
+
 ```bash
-pytest -v
+# Follow API and frontend logs
+docker compose logs -f api frontend
+
+# Re-run the idempotent demo bootstrap
+docker compose run --rm bootstrap
+
+# Rebuild after source changes
+docker compose up --build -d
+
+# Check service state
+docker compose ps -a
 ```
 
-All 64 unit tests pass successfully with zero errors.
+## Local backend development
+
+For backend-only development, configure `.env`, install dependencies, migrate PostgreSQL, bootstrap the demo data, and run Uvicorn:
+
+```bash
+uv sync
+uv run alembic upgrade head
+uv run python scripts/bootstrap_demo.py
+uv run uvicorn app.main:app --reload
+```
+
+The bootstrap script reads `DEMO_SNAPSHOT_PATH`; its default expects the sibling frontend repository at `../flowgard-web/data/mockData.ts`.
+
+## Quality checks
+
+```bash
+uv run ruff check app migrations scripts
+uv run pytest -v
+```
+
+Test results can change as the project evolves; rely on the command output rather than a hardcoded test-count claim.
+
+## Project context
+
+Flowgard is tenant-neutral: the included KPC-derived data is a demonstration fixture, while tenant configuration, assets, users, thresholds, and operational records are isolated for deployment to any liquid-transport operator.
