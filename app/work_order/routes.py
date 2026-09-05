@@ -1,11 +1,13 @@
 """Work order routes. Thin: translate HTTP <-> services, no business logic."""
+
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.core.auth import CurrentUser, get_current_user
+from app.core.auth import CurrentUser, require_permission
 from app.core.db import get_db
+from app.core.permissions import Permission
 from app.core.tenancy import get_current_tenant_id
 from app.work_order import services
 from app.work_order.models import WorkOrderStatus
@@ -19,7 +21,7 @@ def create_work_order(
     payload: WorkOrderCreate,
     db: Session = Depends(get_db),
     tenant_id: uuid.UUID = Depends(get_current_tenant_id),
-    current_user: CurrentUser = Depends(get_current_user),
+    current_user: CurrentUser = Depends(require_permission(Permission.MANAGE_WORK_ORDERS)),
 ) -> WorkOrderRead:
     return services.create_work_order(db, tenant_id, payload, created_by_user_id=current_user.id)
 
@@ -52,6 +54,7 @@ def update_work_order(
     payload: WorkOrderUpdate,
     db: Session = Depends(get_db),
     tenant_id: uuid.UUID = Depends(get_current_tenant_id),
+    _=Depends(require_permission(Permission.MANAGE_WORK_ORDERS)),
 ) -> WorkOrderRead:
     work_order = services.update_work_order(db, tenant_id, work_order_id, payload)
     if work_order is None:
@@ -68,6 +71,7 @@ def auto_generate_work_order(
     pump_id: uuid.UUID,
     db: Session = Depends(get_db),
     tenant_id: uuid.UUID = Depends(get_current_tenant_id),
+    _=Depends(require_permission(Permission.MANAGE_WORK_ORDERS)),
 ) -> WorkOrderRead | None:
     try:
         wo = services.create_work_order_from_prediction(db, tenant_id, pump_id)
@@ -79,4 +83,3 @@ def auto_generate_work_order(
         return wo
     except ValueError as err:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err)) from err
-

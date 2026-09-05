@@ -1,12 +1,14 @@
 """User routes, including login. Thin: translate HTTP <-> services."""
+
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
-from app.core.auth import create_access_token, require_role
+from app.core.auth import create_access_token, require_permission
 from app.core.db import get_db
+from app.core.permissions import Permission
 from app.core.tenancy import get_current_tenant_id
 from app.user import services
 from app.user.schemas import TokenResponse, UserCreate, UserRead, UserUpdate
@@ -37,7 +39,7 @@ def create_user(
     payload: UserCreate,
     db: Session = Depends(get_db),
     tenant_id: uuid.UUID = Depends(get_current_tenant_id),
-    _=Depends(require_role("admin")),
+    _=Depends(require_permission(Permission.MANAGE_USERS)),
 ) -> UserRead:
     return services.create_user(db, tenant_id, payload)
 
@@ -46,6 +48,7 @@ def create_user(
 def list_users(
     db: Session = Depends(get_db),
     tenant_id: uuid.UUID = Depends(get_current_tenant_id),
+    _=Depends(require_permission(Permission.MANAGE_USERS)),
 ) -> list[UserRead]:
     return services.list_users(db, tenant_id)
 
@@ -55,6 +58,7 @@ def get_user(
     user_id: uuid.UUID,
     db: Session = Depends(get_db),
     tenant_id: uuid.UUID = Depends(get_current_tenant_id),
+    _=Depends(require_permission(Permission.MANAGE_USERS)),
 ) -> UserRead:
     user = services.get_user(db, tenant_id, user_id)
     if user is None:
@@ -68,7 +72,7 @@ def update_user(
     payload: UserUpdate,
     db: Session = Depends(get_db),
     tenant_id: uuid.UUID = Depends(get_current_tenant_id),
-    _=Depends(require_role("admin")),
+    _=Depends(require_permission(Permission.MANAGE_USERS)),
 ) -> UserRead:
     user = services.update_user(db, tenant_id, user_id, payload)
     if user is None:
