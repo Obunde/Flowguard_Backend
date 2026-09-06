@@ -18,6 +18,7 @@ from sqlalchemy.pool import StaticPool
 # Import every module's models so they register on Base.metadata — mirrors
 # migrations/env.py. Add a line here whenever a new module gets models.py.
 import app.alert.models  # noqa: F401,E402
+import app.audit.models  # noqa: F401,E402
 import app.etl.bronze.models  # noqa: F401,E402
 import app.etl.gold.models  # noqa: F401,E402
 import app.etl.silver.models  # noqa: F401,E402

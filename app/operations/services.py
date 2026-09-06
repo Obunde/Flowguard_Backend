@@ -3,6 +3,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.etl.silver.models import SensorReading
 from app.explainability.models import FeatureAttribution
 from app.flowgard_engine.models import HealthDeviationRecord
@@ -163,6 +164,19 @@ def dashboard(db: Session, tenant_id: uuid.UUID) -> DashboardSummary:
             )
         )
     generated = max((pump.computed_at for pump in pump_health if pump.computed_at), default=None)
+    latest_sensor = max(
+        (pump.sensors.recorded_at for pump in pump_health if pump.sensors.recorded_at),
+        default=None,
+    )
+    if settings.data_mode == "demo_snapshot":
+        freshness_status = "demo"
+    elif generated is None and latest_sensor is None:
+        freshness_status = "unavailable"
+    else:
+        from datetime import UTC, datetime
+        latest = max(value for value in (generated, latest_sensor) if value is not None)
+        age = (datetime.now(UTC) - latest).total_seconds()
+        freshness_status = "fresh" if age <= settings.telemetry_freshness_seconds else "stale"
     rul_values = [pump.rul_days for pump in pump_health if pump.rul_days is not None]
     return DashboardSummary(
         generated_at=generated,
@@ -175,4 +189,10 @@ def dashboard(db: Session, tenant_id: uuid.UUID) -> DashboardSummary:
         stations=statuses,
         pumps=sorted(pump_health, key=lambda pump: pump.risk_probability, reverse=True),
         model_metrics=model_summary(db, tenant_id),
+        data_provenance="backend",
+        data_mode=settings.data_mode,
+        freshness_status=freshness_status,
+        latest_sensor_at=latest_sensor,
+        latest_prediction_at=generated,
+        synthetic_data=settings.data_mode != "operational",
     )

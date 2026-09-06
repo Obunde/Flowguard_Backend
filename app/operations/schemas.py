@@ -68,6 +68,10 @@ class DashboardSummary(BaseModel):
     pumps: list[PumpHealth]
     model_metrics: ModelSummary
     data_provenance: str = "backend"
+    data_mode: str = "demo_snapshot"
+    freshness_status: str = "demo"
+    latest_sensor_at: datetime | None = None
+    latest_prediction_at: datetime | None = None
     synthetic_data: bool = True
 
 

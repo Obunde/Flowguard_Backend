@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.audit.services import record_event
 from app.prediction.services import get_latest_prediction, run_prediction
 from app.pump.models import Pump
 from app.work_order.models import WorkOrder, WorkOrderSource, WorkOrderStatus
@@ -21,6 +22,8 @@ def create_work_order(
         tenant_id=tenant_id, created_by_user_id=created_by_user_id, **payload.model_dump()
     )
     db.add(work_order)
+    db.flush()
+    record_event(db, tenant_id, created_by_user_id, "work_order", work_order.id, "created")
     db.commit()
     db.refresh(work_order)
     return work_order
@@ -51,12 +54,17 @@ def list_work_orders(
 
 
 def update_work_order(
-    db: Session, tenant_id: uuid.UUID, work_order_id: uuid.UUID, payload: WorkOrderUpdate
+    db: Session,
+    tenant_id: uuid.UUID,
+    work_order_id: uuid.UUID,
+    payload: WorkOrderUpdate,
+    actor_user_id: uuid.UUID | None = None,
 ) -> WorkOrder | None:
     work_order = get_work_order(db, tenant_id, work_order_id)
     if work_order is None:
         return None
     changes = payload.model_dump(exclude_unset=True)
+    previous = {key: getattr(work_order, key) for key in changes}
     for field, value in changes.items():
         setattr(work_order, field, value)
     if "status" in changes:
@@ -64,6 +72,16 @@ def update_work_order(
             work_order.closed_at = work_order.closed_at or datetime.now(UTC)
         elif changes["status"] in {WorkOrderStatus.OPEN, WorkOrderStatus.IN_PROGRESS}:
             work_order.closed_at = None
+    record_event(
+        db,
+        tenant_id,
+        actor_user_id,
+        "work_order",
+        work_order.id,
+        "updated",
+        previous_value={key: str(value) for key, value in previous.items()},
+        new_value={key: str(value) for key, value in changes.items()},
+    )
     db.commit()
     db.refresh(work_order)
     return work_order

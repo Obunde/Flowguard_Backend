@@ -17,7 +17,11 @@ router = APIRouter(prefix="/api/v1", tags=["operations"])
 
 @router.get("/capabilities", response_model=Capabilities)
 def capabilities() -> Capabilities:
-    return Capabilities(smtp_digest=bool(settings.smtp_host and settings.smtp_from_email))
+    return Capabilities(
+        smtp_digest=bool(settings.smtp_host and settings.smtp_from_email),
+        live_telemetry=settings.data_mode == "operational",
+        data_mode=settings.data_mode,
+    )
 
 
 @router.get("/dashboard/summary", response_model=DashboardSummary)

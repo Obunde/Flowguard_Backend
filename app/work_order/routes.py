@@ -54,9 +54,11 @@ def update_work_order(
     payload: WorkOrderUpdate,
     db: Session = Depends(get_db),
     tenant_id: uuid.UUID = Depends(get_current_tenant_id),
-    _=Depends(require_permission(Permission.MANAGE_WORK_ORDERS)),
+    current_user: CurrentUser = Depends(require_permission(Permission.MANAGE_WORK_ORDERS)),
 ) -> WorkOrderRead:
-    work_order = services.update_work_order(db, tenant_id, work_order_id, payload)
+    work_order = services.update_work_order(
+        db, tenant_id, work_order_id, payload, actor_user_id=current_user.id
+    )
     if work_order is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Work order not found")
     return work_order
