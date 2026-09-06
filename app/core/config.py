@@ -38,6 +38,21 @@ class Settings(BaseSettings):
     jwt_secret_key: str
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 60
+    jwt_reset_token_expire_minutes: int = 30  # first-login reset token
+
+    # Platform-admin bootstrap (scripts/seed_platform_admin.py). Password has
+    # no default on purpose — must come from PLATFORM_ADMIN_PASSWORD in .env.
+    platform_admin_email: str = "platform.admin@flow.com"
+    platform_admin_password: str
+    platform_admin_full_name: str = "Platform Administrator"
+
+    # Onboarding-credential email (app/core/email.py). Empty smtp_host -> 503.
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = "no-reply@flowgard.local"
+    smtp_use_tls: bool = True
 
     # NoDecode: read as a plain string from .env (comma-separated) instead
     # of pydantic-settings' default JSON decoding for list-typed fields —
