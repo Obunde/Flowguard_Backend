@@ -20,6 +20,7 @@ from app.prediction.routes import router as prediction_router
 from app.pump.routes import router as pump_router
 from app.rul.routes import router as rul_router
 from app.station.routes import router as station_router
+from app.telemetry.routes import router as telemetry_router
 from app.tenant.routes import router as tenant_router
 from app.user.routes import router as user_router
 from app.work_order.routes import router as work_order_router
@@ -33,6 +34,7 @@ ALL_ROUTERS = (
     audit_router,
     operations_router,
     tenant_router,
+    telemetry_router,
     station_router,
     pump_router,
     user_router,
