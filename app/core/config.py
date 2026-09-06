@@ -6,6 +6,7 @@ outside this file should call `os.environ` / `os.getenv` directly — import
 place and makes it trivial to see the full surface of external inputs the
 app depends on.
 """
+
 from functools import lru_cache
 from typing import Annotated
 
@@ -38,6 +39,24 @@ class Settings(BaseSettings):
     jwt_secret_key: str
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 60
+    jwt_refresh_token_expire_days: int = 7
+
+    seed_admin_email: str | None = None
+    seed_admin_password: str | None = None
+    seed_admin_full_name: str = "Flowgard Administrator"
+    seed_planner_email: str | None = None
+    seed_planner_password: str | None = None
+    seed_technician_email: str | None = None
+    seed_technician_password: str | None = None
+    seed_viewer_email: str | None = None
+    seed_viewer_password: str | None = None
+
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_username: str | None = None
+    smtp_password: str | None = None
+    smtp_from_email: str | None = None
+    smtp_use_tls: bool = True
 
     # NoDecode: read as a plain string from .env (comma-separated) instead
     # of pydantic-settings' default JSON decoding for list-typed fields —
@@ -47,6 +66,8 @@ class Settings(BaseSettings):
     # ETL (app/etl/)
     weather_api_base_url: str = "https://api.open-meteo.com/v1"
     simulator_interval_seconds: int = 5
+    data_mode: str = "demo_snapshot"
+    telemetry_freshness_seconds: int = 900
 
     @field_validator("cors_allow_origins", mode="before")
     @classmethod

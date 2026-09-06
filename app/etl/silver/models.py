@@ -4,6 +4,7 @@
 tables app/etl is the exclusive writer of. Every other module reads these
 (if at all) through app/feature_engineering, never directly.
 """
+
 import uuid
 from datetime import datetime
 
@@ -24,6 +25,7 @@ class SensorReading(Base, UUIDPrimaryKeyMixin, TenantScopedMixin):
     )
 
     vibration_mm_s: Mapped[float | None] = mapped_column(Numeric(10, 4), nullable=True)
+    vibration_g: Mapped[float | None] = mapped_column(Numeric(10, 4), nullable=True)
     temperature_c: Mapped[float | None] = mapped_column(Numeric(6, 2), nullable=True)
     pressure_kpa: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
     motor_current_a: Mapped[float | None] = mapped_column(Numeric(8, 2), nullable=True)

@@ -1,9 +1,12 @@
 """Business logic for work orders."""
 import uuid
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.alert.models import Alert, AlertStatus
+from app.audit.services import record_event
 from app.prediction.services import get_latest_prediction, run_prediction
 from app.pump.models import Pump
 from app.work_order.models import WorkOrder, WorkOrderSource, WorkOrderStatus
@@ -20,6 +23,8 @@ def create_work_order(
         tenant_id=tenant_id, created_by_user_id=created_by_user_id, **payload.model_dump()
     )
     db.add(work_order)
+    db.flush()
+    record_event(db, tenant_id, created_by_user_id, "work_order", work_order.id, "created")
     db.commit()
     db.refresh(work_order)
     return work_order
@@ -50,13 +55,34 @@ def list_work_orders(
 
 
 def update_work_order(
-    db: Session, tenant_id: uuid.UUID, work_order_id: uuid.UUID, payload: WorkOrderUpdate
+    db: Session,
+    tenant_id: uuid.UUID,
+    work_order_id: uuid.UUID,
+    payload: WorkOrderUpdate,
+    actor_user_id: uuid.UUID | None = None,
 ) -> WorkOrder | None:
     work_order = get_work_order(db, tenant_id, work_order_id)
     if work_order is None:
         return None
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    changes = payload.model_dump(exclude_unset=True)
+    previous = {key: getattr(work_order, key) for key in changes}
+    for field, value in changes.items():
         setattr(work_order, field, value)
+    if "status" in changes:
+        if changes["status"] in {WorkOrderStatus.COMPLETED, WorkOrderStatus.CANCELLED}:
+            work_order.closed_at = work_order.closed_at or datetime.now(UTC)
+        elif changes["status"] in {WorkOrderStatus.OPEN, WorkOrderStatus.IN_PROGRESS}:
+            work_order.closed_at = None
+    record_event(
+        db,
+        tenant_id,
+        actor_user_id,
+        "work_order",
+        work_order.id,
+        "updated",
+        previous_value={key: str(value) for key, value in previous.items()},
+        new_value={key: str(value) for key, value in changes.items()},
+    )
     db.commit()
     db.refresh(work_order)
     return work_order
@@ -87,12 +113,23 @@ def create_work_order_from_prediction(
         f"7-day failure risk score: {risk_score:.2f}, fault class: {fault_label}."
     )
 
+    source_alert = db.scalar(
+        select(Alert)
+        .where(
+            Alert.tenant_id == tenant_id,
+            Alert.pump_id == pump.id,
+            Alert.status != AlertStatus.RESOLVED,
+        )
+        .order_by(Alert.triggered_at.desc())
+    )
     wo_create = WorkOrderCreate(
         pump_id=pump.id,
         station_id=pump.station_id,
         title=title,
         description=description,
         source=WorkOrderSource.ALERT,
+        source_prediction_id=prediction.id,
+        source_alert_id=source_alert.id if source_alert else None,
         priority=priority,
     )
     return create_work_order(db, tenant_id, wo_create)
