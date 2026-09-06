@@ -15,11 +15,11 @@ class WorkOrderBase(BaseModel):
     priority: str = "normal"
     due_at: datetime | None = None
 
-
 class WorkOrderCreate(WorkOrderBase):
     assigned_to_user_id: uuid.UUID | None = None
+    source_alert_id: uuid.UUID | None = None
+    source_prediction_id: uuid.UUID | None = None
     source: WorkOrderSource = WorkOrderSource.MANUAL
-
 
 class WorkOrderUpdate(BaseModel):
     status: WorkOrderStatus | None = None
@@ -27,15 +27,27 @@ class WorkOrderUpdate(BaseModel):
     priority: str | None = None
     due_at: datetime | None = None
     closed_at: datetime | None = None
-
+    source_alert_id: uuid.UUID | None = None
+    source_prediction_id: uuid.UUID | None = None
+    completion_note: str | None = None
+    root_cause: str | None = None
+    corrective_action: str | None = None
+    downtime_minutes: int | None = None
+    follow_up_required: bool = False
 
 class WorkOrderRead(WorkOrderBase):
     model_config = ConfigDict(from_attributes=True)
-
     id: uuid.UUID
     tenant_id: uuid.UUID
     status: WorkOrderStatus
     source: WorkOrderSource
     created_by_user_id: uuid.UUID | None = None
     assigned_to_user_id: uuid.UUID | None = None
+    source_alert_id: uuid.UUID | None = None
+    source_prediction_id: uuid.UUID | None = None
     closed_at: datetime | None = None
+    completion_note: str | None = None
+    root_cause: str | None = None
+    corrective_action: str | None = None
+    downtime_minutes: int | None = None
+    follow_up_required: bool = False

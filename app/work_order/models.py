@@ -5,7 +5,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String, Text
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import Base, TenantScopedMixin, TimestampMixin, UUIDPrimaryKeyMixin
@@ -39,6 +39,12 @@ class WorkOrder(Base, UUIDPrimaryKeyMixin, TenantScopedMixin, TimestampMixin):
     assigned_to_user_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("user.id", ondelete="SET NULL"), nullable=True
     )
+    source_alert_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("alert.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    source_prediction_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("prediction_result.id", ondelete="SET NULL"), nullable=True, index=True
+    )
 
     title: Mapped[str] = mapped_column(String(250), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -56,6 +62,11 @@ class WorkOrder(Base, UUIDPrimaryKeyMixin, TenantScopedMixin, TimestampMixin):
 
     due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completion_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    root_cause: Mapped[str | None] = mapped_column(String(250), nullable=True)
+    corrective_action: Mapped[str | None] = mapped_column(Text, nullable=True)
+    downtime_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    follow_up_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     def __repr__(self) -> str:  # pragma: no cover
         return f"<WorkOrder id={self.id} status={self.status}>"

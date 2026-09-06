@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.alert.models import Alert, AlertStatus
 from app.audit.services import record_event
 from app.prediction.services import get_latest_prediction, run_prediction
 from app.pump.models import Pump
@@ -112,12 +113,23 @@ def create_work_order_from_prediction(
         f"7-day failure risk score: {risk_score:.2f}, fault class: {fault_label}."
     )
 
+    source_alert = db.scalar(
+        select(Alert)
+        .where(
+            Alert.tenant_id == tenant_id,
+            Alert.pump_id == pump.id,
+            Alert.status != AlertStatus.RESOLVED,
+        )
+        .order_by(Alert.triggered_at.desc())
+    )
     wo_create = WorkOrderCreate(
         pump_id=pump.id,
         station_id=pump.station_id,
         title=title,
         description=description,
         source=WorkOrderSource.ALERT,
+        source_prediction_id=prediction.id,
+        source_alert_id=source_alert.id if source_alert else None,
         priority=priority,
     )
     return create_work_order(db, tenant_id, wo_create)

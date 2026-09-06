@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.alert.routes import router as alert_router
+from app.audit.routes import router as audit_router
 from app.auth_session.routes import router as auth_router
 from app.core.config import settings
 from app.core.middleware import add_middleware
@@ -29,6 +30,7 @@ from app.work_order.routes import router as work_order_router
 
 ALL_ROUTERS = (
     auth_router,
+    audit_router,
     operations_router,
     tenant_router,
     station_router,
