@@ -12,6 +12,8 @@ from app.alert.models import Alert, AlertSeverity, AlertStatus
 from app.core.config import settings
 from app.maintenance_schedule.models import ScheduledMaintenance, ScheduleStatus
 from app.operations.services import list_pump_health
+from app.pump.models import Pump
+from app.station.models import Station
 from app.work_order.models import WorkOrder, WorkOrderStatus
 
 
@@ -118,23 +120,32 @@ def work_orders_csv(db: Session, tenant_id: uuid.UUID) -> str:
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(
-        ["id", "pump_id", "station_id", "title", "priority", "status", "source", "due_at"]
+        [
+            "work_order_reference", "pump_code", "station_code", "station_name",
+            "title", "priority", "status", "source", "due_at", "created_at", "closed_at",
+        ]
     )
-    for item in db.scalars(
-        select(WorkOrder)
+    statement = (
+        select(WorkOrder, Pump, Station)
+        .join(Pump, Pump.id == WorkOrder.pump_id)
+        .join(Station, Station.id == WorkOrder.station_id)
         .where(WorkOrder.tenant_id == tenant_id)
         .order_by(WorkOrder.created_at.desc())
-    ):
+    )
+    for sequence, (item, pump, station) in enumerate(db.execute(statement), start=1):
         writer.writerow(
             [
-                item.id,
-                item.pump_id,
-                item.station_id,
+                f"WO-{item.created_at.year if item.created_at else 'XXXX'}-{sequence:04d}",
+                pump.tag_number,
+                station.code,
+                station.name,
                 item.title,
                 item.priority,
                 item.status.value,
                 item.source.value,
                 item.due_at.isoformat() if item.due_at else "",
+                item.created_at.isoformat() if item.created_at else "",
+                item.closed_at.isoformat() if item.closed_at else "",
             ]
         )
     return output.getvalue()

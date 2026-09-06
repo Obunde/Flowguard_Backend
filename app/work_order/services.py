@@ -1,5 +1,6 @@
 """Business logic for work orders."""
 import uuid
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -55,8 +56,14 @@ def update_work_order(
     work_order = get_work_order(db, tenant_id, work_order_id)
     if work_order is None:
         return None
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    changes = payload.model_dump(exclude_unset=True)
+    for field, value in changes.items():
         setattr(work_order, field, value)
+    if "status" in changes:
+        if changes["status"] in {WorkOrderStatus.COMPLETED, WorkOrderStatus.CANCELLED}:
+            work_order.closed_at = work_order.closed_at or datetime.now(UTC)
+        elif changes["status"] in {WorkOrderStatus.OPEN, WorkOrderStatus.IN_PROGRESS}:
+            work_order.closed_at = None
     db.commit()
     db.refresh(work_order)
     return work_order
