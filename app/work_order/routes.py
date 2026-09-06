@@ -11,9 +11,10 @@ from app.core.permissions import Permission
 from app.core.tenancy import get_current_tenant_id
 from app.work_order import services
 from app.work_order.models import WorkOrderStatus
-from app.work_order.schemas import WorkOrderCreate, WorkOrderRead, WorkOrderUpdate
+from app.work_order.schemas import WorkOrderCreate, WorkOrderOutcome, WorkOrderRead, WorkOrderUpdate
 
 router = APIRouter(prefix="/api/v1/work-orders", tags=["work_orders"])
+
 
 
 @router.post("", response_model=WorkOrderRead, status_code=status.HTTP_201_CREATED)
@@ -63,6 +64,16 @@ def update_work_order(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Work order not found")
     return work_order
 
+
+@router.post("/{work_order_id}/outcome", response_model=WorkOrderRead)
+def record_outcome(work_order_id: uuid.UUID, payload: WorkOrderOutcome, db: Session = Depends(get_db), tenant_id: uuid.UUID = Depends(get_current_tenant_id), current_user: CurrentUser = Depends(require_permission(Permission.MANAGE_WORK_ORDERS))) -> WorkOrderRead:
+    if payload.outcome not in {"confirmed_failure", "degraded", "no_fault_found", "preventive_only", "inconclusive"}:
+        raise HTTPException(status_code=422, detail="Unsupported maintenance outcome")
+    update = WorkOrderUpdate(status=WorkOrderStatus.COMPLETED, completed_by_user_id=current_user.id, completion_note=payload.completion_note, outcome=payload.outcome, post_maintenance_condition=payload.post_maintenance_condition, root_cause=payload.root_cause, corrective_action=payload.corrective_action, downtime_minutes=payload.downtime_minutes, follow_up_required=payload.follow_up_required, follow_up_due_at=payload.follow_up_due_at)
+    work_order = services.update_work_order(db, tenant_id, work_order_id, update, actor_user_id=current_user.id)
+    if work_order is None:
+        raise HTTPException(status_code=404, detail="Work order not found")
+    return work_order
 
 @router.post(
     "/auto-generate/pumps/{pump_id}",

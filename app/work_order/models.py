@@ -67,6 +67,13 @@ class WorkOrder(Base, UUIDPrimaryKeyMixin, TenantScopedMixin, TimestampMixin):
     corrective_action: Mapped[str | None] = mapped_column(Text, nullable=True)
     downtime_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     follow_up_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    outcome: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    post_maintenance_condition: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    completed_by_user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("user.id", ondelete="SET NULL"), nullable=True)
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    verified_by_user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("user.id", ondelete="SET NULL"), nullable=True)
+    follow_up_due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    parent_work_order_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("work_order.id", ondelete="SET NULL"), nullable=True, index=True)
 
     def __repr__(self) -> str:  # pragma: no cover
         return f"<WorkOrder id={self.id} status={self.status}>"

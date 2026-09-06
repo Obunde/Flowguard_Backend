@@ -34,6 +34,23 @@ class WorkOrderUpdate(BaseModel):
     corrective_action: str | None = None
     downtime_minutes: int | None = None
     follow_up_required: bool = False
+    outcome: str | None = None
+    post_maintenance_condition: str | None = None
+    completed_by_user_id: uuid.UUID | None = None
+    verified_at: datetime | None = None
+    verified_by_user_id: uuid.UUID | None = None
+    follow_up_due_at: datetime | None = None
+    parent_work_order_id: uuid.UUID | None = None
+
+class WorkOrderOutcome(BaseModel):
+    completion_note: str
+    outcome: str
+    post_maintenance_condition: str
+    root_cause: str | None = None
+    corrective_action: str | None = None
+    downtime_minutes: int | None = None
+    follow_up_required: bool = False
+    follow_up_due_at: datetime | None = None
 
 class WorkOrderRead(WorkOrderBase):
     model_config = ConfigDict(from_attributes=True)
