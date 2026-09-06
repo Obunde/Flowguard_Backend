@@ -15,6 +15,7 @@ from app.core.middleware import add_middleware
 from app.explainability.routes import router as explainability_router
 from app.maintenance_schedule.routes import router as maintenance_schedule_router
 from app.model_metrics.routes import router as model_metrics_router
+from app.model_governance_routes import router as model_governance_router
 from app.operations.routes import router as operations_router
 from app.prediction.routes import router as prediction_router
 from app.pump.routes import router as pump_router
@@ -45,6 +46,7 @@ ALL_ROUTERS = (
     alert_router,
     maintenance_schedule_router,
     model_metrics_router,
+    model_governance_router,
 )
 
 
