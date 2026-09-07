@@ -4,6 +4,7 @@ Interactive frontend for Kenya Pipeline Company (KPC) petroleum network and
 Municipal Water Transport (NCWSC) infrastructure monitoring.
 Communicates with the Flowguard FastAPI Backend via REST APIs.
 """
+import logging
 import os
 import warnings
 from datetime import datetime
@@ -15,9 +16,14 @@ import plotly.graph_objects as go
 import requests
 import streamlit as st
 
+# Configure loggers to suppress deprecation logs on Streamlit Cloud
+logging.getLogger("streamlit").setLevel(logging.ERROR)
+logging.getLogger("streamlit.runtime.scriptrunner.script_runner").setLevel(logging.ERROR)
+
 # Filter out Python syntax & Streamlit deprecation warnings on Streamlit Cloud
 warnings.filterwarnings("ignore", category=SyntaxWarning)
 warnings.filterwarnings("ignore", category=UserWarning)
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 warnings.filterwarnings("ignore", message=".*use_container_width.*")
 
 # Configuration & Page Setup
@@ -436,7 +442,14 @@ def api_request(method: str, endpoint: str, data: dict = None, token: str = None
         if method.upper() == "GET":
             response = requests.get(url, headers=headers, timeout=10)
         elif method.upper() == "POST":
-            response = requests.post(url, json=data, headers=headers, timeout=10)
+            if "login" in endpoint:
+                form_payload = {
+                    "username": (data or {}).get("email", (data or {}).get("username", "")),
+                    "password": (data or {}).get("password", ""),
+                }
+                response = requests.post(url, data=form_payload, headers=headers, timeout=10)
+            else:
+                response = requests.post(url, json=data, headers=headers, timeout=10)
         elif method.upper() == "PATCH":
             response = requests.patch(url, json=data, headers=headers, timeout=10)
         else:
@@ -826,8 +839,27 @@ with tab1:
             st.plotly_chart(fig_map, use_container_width=True)
 
         with col_m2:
-            st.markdown("##### **3D Pipeline Elevation Profile**")
+            st.markdown("##### **3D Pipeline Elevation Profile & Terrain Surface**")
             fig_3d_elev = go.Figure()
+
+            # Add Digital Terrain Surface Mesh
+            lats_grid = np.linspace(df_map["lat"].min() - 0.15, df_map["lat"].max() + 0.15, 25)
+            lons_grid = np.linspace(df_map["lon"].min() - 0.15, df_map["lon"].max() + 0.15, 25)
+            grid_lon, grid_lat = np.meshgrid(lons_grid, lats_grid)
+            grid_z = (
+                float(df_map["elevation"].mean())
+                + 400 * np.sin(grid_lat * 3) * np.cos(grid_lon * 3)
+            )
+
+            fig_3d_elev.add_trace(go.Surface(
+                x=grid_lon,
+                y=grid_lat,
+                z=grid_z,
+                colorscale="Earth",
+                showscale=False,
+                opacity=0.30,
+                name="Digital Terrain Mesh",
+            ))
 
             # 3D Line path for pipeline elevation
             fig_3d_elev.add_trace(go.Scatter3d(
@@ -835,18 +867,18 @@ with tab1:
                 y=df_map["lat"],
                 z=df_map["elevation"],
                 mode="lines+markers" if len(df_map) > 1 else "markers",
-                line=dict(color="#2563EB", width=6),
+                line=dict(color="#1D4ED8", width=7),
                 marker=dict(
-                    size=9,
+                    size=10,
                     color=df_map["color"],
                     symbol="circle",
                 ),
                 hovertext=[
-                    f"{r['code']} ({r['name']})<br>Elev: {r['elevation']} m"
+                    f"<b>{r['code']} ({r['name']})</b><br>Elevation: {r['elevation']} m<br>Status: <b>{r['health']}</b>"
                     for _, r in df_map.iterrows()
                 ],
                 hoverinfo="text",
-                name="Elevation Corridor",
+                name="Pipeline Route",
             ))
 
             fig_3d_elev.update_layout(
@@ -1120,17 +1152,17 @@ with tab5:
             shap_data = {k.capitalize(): v * 100 for k, v in scores.items()}
 
     with col_3d1:
-        st.markdown("##### **High-Resolution 3D Centrifugal Pump Assembly Model**")
+        st.markdown("##### **High-Resolution 3D Centrifugal Pump Digital Twin Assembly**")
 
         fig_pump_3d = go.Figure()
 
-        # 1. Motor Casing Cylindrical Mesh (X: -4 to -1)
+        # 1. Electric Motor Cylindrical Housing Mesh (X: -4 to -1)
         z_cylinder = np.linspace(-1, 1, 15)
         theta_cyl = np.linspace(0, 2 * np.pi, 20)
         z_grid, theta_grid = np.meshgrid(z_cylinder, theta_cyl)
-        y_motor = 1.1 * np.cos(theta_grid)
+        y_motor = 1.15 * np.cos(theta_grid)
         x_motor = np.full_like(y_motor, -2.5) + z_grid * 1.5
-        z_motor = 1.1 * np.sin(theta_grid)
+        z_motor = 1.15 * np.sin(theta_grid)
 
         fig_pump_3d.add_trace(go.Surface(
             x=x_motor,
@@ -1139,60 +1171,78 @@ with tab5:
             colorscale="Blues",
             showscale=False,
             opacity=0.85,
-            name="1. Electric Motor Casing",
+            name="Electric Motor Housing",
         ))
 
-        # 2. Heavy Drive Shaft Line (X: -4 to 5)
+        # 1b. Motor Cooling Fins
+        for fin_x in [-3.5, -2.8, -2.1, -1.4]:
+            fin_y = 1.25 * np.cos(theta_cyl)
+            fin_z = 1.25 * np.sin(theta_cyl)
+            fin_x_arr = np.full_like(theta_cyl, fin_x)
+            fig_pump_3d.add_trace(go.Scatter3d(
+                x=fin_x_arr, y=fin_y, z=fin_z, mode="lines",
+                line=dict(color="#1E3A8A", width=4), showlegend=False,
+            ))
+
+        # 2. Heavy Drive Shaft & Coupling Hub (X: -4 to 5)
         fig_pump_3d.add_trace(go.Scatter3d(
-            x=[-4, 5],
-            y=[0, 0],
-            z=[0, 0],
+            x=[-4, 5], y=[0, 0], z=[0, 0],
             mode="lines+markers",
-            line=dict(color="#0F172A", width=9),
-            marker=dict(size=5, color="#334155"),
-            name="2. Heavy Drive Shaft Line",
+            line=dict(color="#0F172A", width=10),
+            marker=dict(size=6, color="#334155"),
+            name="Drive Shaft & Coupling",
         ))
 
-        # 3. Drive-End (DE) and Non-Drive-End (NDE) Bearing Housings (X: -0.5, X: 4.5)
+        # 3. Drive-End (DE) & Non-Drive-End (NDE) Bearing Housings
         bearing_score = shap_data.get("Bearing Assembly", 0) or shap_data.get("Bearing Housing", 0)
         bearing_color = "#DC2626" if bearing_score > 35 else "#10B981"
         fig_pump_3d.add_trace(go.Scatter3d(
-            x=[-0.5, 4.5],
-            y=[0, 0],
-            z=[0, 0],
+            x=[-0.5, 4.5], y=[0, 0], z=[0, 0],
             mode="markers+text",
-            marker=dict(size=18, color=bearing_color, symbol="diamond"),
-            text=["DE Bearing", "NDE Bearing"],
+            marker=dict(size=20, color=bearing_color, symbol="diamond", line=dict(color="#FFFFFF", width=2)),
+            text=["DE Bearing (Anomalous)" if bearing_score > 35 else "DE Bearing (Normal)", "NDE Bearing"],
             textposition="top center",
-            name="3. Bearing Housings (DE & NDE)",
+            name="DE/NDE Bearing Housings",
         ))
 
-        # 4. Multi-Stage Impeller Disks & Volute Housing (X: 1.2, 2.4, 3.6)
+        # 4. Multi-Stage Impeller Disks & Volute Housing
         impeller_score = shap_data.get("Impeller Stage", 0) or shap_data.get("Suction Impeller", 0)
         impeller_color = "#DC2626" if impeller_score > 35 else "#F59E0B"
         theta = np.linspace(0, 2 * np.pi, 30)
         for x_pos in [1.2, 2.4, 3.6]:
-            y_ring = 1.3 * np.cos(theta)
-            z_ring = 1.3 * np.sin(theta)
+            y_ring = 1.35 * np.cos(theta)
+            z_ring = 1.35 * np.sin(theta)
             x_ring = np.full_like(theta, x_pos)
             fig_pump_3d.add_trace(go.Scatter3d(
-                x=x_ring,
-                y=y_ring,
-                z=z_ring,
+                x=x_ring, y=y_ring, z=z_ring,
                 mode="lines",
-                line=dict(color=impeller_color, width=6),
-                name=f"4. Impeller Stage (X={x_pos}m)",
+                line=dict(color=impeller_color, width=7),
+                name=f"Impeller Stage (X={x_pos}m)",
                 showlegend=False,
             ))
+
+        # 5. Suction & Discharge Nozzles
+        fig_pump_3d.add_trace(go.Scatter3d(
+            x=[5.0, 5.8], y=[0, 0], z=[0, 0],
+            mode="lines+markers",
+            line=dict(color="#2563EB", width=12),
+            name="Suction Nozzle Flange",
+        ))
+        fig_pump_3d.add_trace(go.Scatter3d(
+            x=[2.4, 2.4], y=[0, 0], z=[1.35, 2.2],
+            mode="lines+markers",
+            line=dict(color="#D97706", width=12),
+            name="Discharge Nozzle Flange",
+        ))
 
         fig_pump_3d.update_layout(
             scene=dict(
                 xaxis_title="Shaft Axis X (m)",
-                yaxis_title="Y (m)",
-                zaxis_title="Z (m)",
+                yaxis_title="Transverse Y (m)",
+                zaxis_title="Vertical Z (m)",
                 camera=dict(eye=dict(x=1.8, y=1.8, z=0.8)),
             ),
-            height=400,
+            height=420,
             margin={"r": 0, "t": 20, "l": 0, "b": 0},
         )
         st.plotly_chart(fig_pump_3d, use_container_width=True)
@@ -1214,10 +1264,39 @@ with tab5:
         fig_shap.update_layout(height=360, margin={"r": 10, "t": 30, "l": 10, "b": 10})
         st.plotly_chart(fig_shap, use_container_width=True)
 
-# Tab 6: Water Scenario Replicator
+# Tab 6: Water Scenario Replicator & Hydraulic Simulator
 with tab6:
-    sc1, sc2 = st.columns(2)
+    st.subheader("💧 Municipal Water Transport & Petroleum Cross-Domain Replicator")
+    st.caption("Interactive hydraulic residual engine and dual-domain physics comparison simulator.")
 
+    st.markdown("##### ⚙️ **Interactive Hydraulic Parameter Simulator**")
+    sim_col1, sim_col2, sim_col3 = st.columns(3)
+    with sim_col1:
+        sim_flow = st.slider("Simulated Flow Rate (m³/hr)", 100.0, 1000.0, 450.0, 10.0)
+    with sim_col2:
+        sim_head_loss = st.slider("Suction Head Loss (m)", 1.0, 20.0, 12.5, 0.5)
+    with sim_col3:
+        sim_temp = st.slider("Fluid Temperature (°C)", 10.0, 60.0, 25.0, 1.0)
+
+    # Physics residual calculation
+    npsha = max(0.5, 10.33 - sim_head_loss - (0.03 * (sim_temp / 10.0)))
+    npshr = 3.5 + 0.005 * (sim_flow / 100.0) ** 2
+    cavitation_risk = "CRITICAL (Cavitation Active)" if npsha < npshr else "NORMAL (Stable Head)"
+    power_kw = (sim_flow * (150.0 - sim_head_loss) * 9.81 * 1000) / (3600 * 1000 * 0.78)
+
+    res_col1, res_col2, res_col3, res_col4 = st.columns(4)
+    with res_col1:
+        st.metric("NPSH Available (NPSHa)", f"{npsha:.2f} m")
+    with res_col2:
+        st.metric("NPSH Required (NPSHr)", f"{npshr:.2f} m")
+    with res_col3:
+        st.metric("Cavitation Status", cavitation_risk)
+    with res_col4:
+        st.metric("Pumping Power Demand", f"{power_kw:.1f} kW")
+
+    st.divider()
+
+    sc1, sc2 = st.columns(2)
     with sc1:
         st.markdown("### 🛢️ **Petroleum Transportation (KPC)**")
         st.markdown(r"""
