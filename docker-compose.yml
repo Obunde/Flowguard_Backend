@@ -34,7 +34,7 @@ services:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-flowgard}:${POSTGRES_PASSWORD:-flowgard}@db:5432/${POSTGRES_DB:-flowgard}
       TEST_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-flowgard}:${POSTGRES_PASSWORD:-flowgard}@db:5432/${POSTGRES_DB:-flowgard}_test
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev-secret-change-me}
-      CORS_ALLOW_ORIGINS: http://localhost:3000
+      CORS_ALLOW_ORIGINS: http://localhost:3000,http://localhost:8501
     depends_on:
       db:
         condition: service_healthy
@@ -50,6 +50,19 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.dashboard
+    restart: unless-stopped
+    ports:
+      - "8501:8501"
+    environment:
+      API_BASE_URL: http://api:8000
+    depends_on:
+      api:
+        condition: service_started
 
   seed:
     build: .
