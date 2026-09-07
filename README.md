@@ -41,44 +41,59 @@ Flowguard transitions KPC to continuous, condition-driven risk mitigation:
 
 ---
 
-## 3. Technology Stack & Architectural Principles
+## 3. System Architecture & High-Level Design
 
-- **Core Framework:** Python 3.13, FastAPI, Pydantic v2
-- **ORM & Database:** SQLAlchemy 2.0 (Multi-Schema: `master`, `bronze`, `silver`, `gold`), Alembic, PostgreSQL 16 (with SQLite in-memory fallback for testing)
-- **Security:** Multi-tenant JWT auth (`X-Tenant-ID` scoping), bcrypt password hashing
-- **Code Quality & Testing:** Pytest, pytest-cov, Ruff, `uv` / standard `venv`
+Flowguard is built as a modular, vertical-slice backend using **FastAPI**, **SQLAlchemy 2.0**, **PostgreSQL**, and **Pydantic v2**.
 
-```
-                          ┌──────────────────────────┐
-                          │   SCADA / Sensor Stream  │
-                          └─────────────┬────────────┘
-                                        │
-                                        ▼
-    ┌───────────────────────────────────────────────────────────────────────┐
-    │                        Medallion Data Pipeline                        │
-    │  ┌──────────────────┐    ┌───────────────────┐    ┌────────────────┐  │
-    │  │  Bronze Schema   │───►│   Silver Schema   │───►│  Gold Schema   │  │
-    │  │  (Raw Telemetry) │    │  (Quality Gate)   │    │(Rolling Aggs)  │  │
-    │  └──────────────────┘    └───────────────────┘    └───────┬────────┘  │
-    └───────────────────────────────────────────────────────────┼───────────┘
-                                                                │
-                                                                ▼
-┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                          Analytics, Physics & Machine Learning                          │
-│  ┌───────────────────────┐   ┌───────────────────────┐   ┌───────────────────────────┐  │
-│  │ Flowguard Physics HDI │──►│ 7-Day Risk Classifier │──►│   RUL Regression Engine   │  │
-│  │  (Pressure Residuals) │   │ (Fault Classification)│   │  (MC Dropout Confidence)  │  │
-│  └───────────────────────┘   └───────────┬───────────┘   └─────────────┬─────────────┘  │
-└──────────────────────────────────────────┼─────────────────────────────┼────────────────┘
-                                           │                             │
-                                           ▼                             ▼
-┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                              Operational Workflow Core                                  │
-│  ┌───────────────────────┐   ┌───────────────────────┐   ┌───────────────────────────┐  │
-│  │   SHAP Explainability │   │ Auto Work Order Gen   │   │  RUL-Ranked Schedule      │  │
-│  │ (Sub-component XAI)   │   │  (Trigger Risk >= 0.7)│   │   (Priority Re-Ranking)   │  │
-│  └───────────────────────┘   └───────────────────────┘   └───────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph Data Sources & Ingestion
+        SCADA["Field SCADA / Sensor Simulator Stream"]
+        Meteo["Open-Meteo Weather API"]
+        Regional["Regional Security & Threat Intelligence"]
+    end
+
+    subgraph Medallion ETL Pipeline
+        Bronze[("Bronze Layer\n(Raw Payloads & JSONB)")]
+        Silver[("Silver Layer\n(Cleansed & Quality Gated)")]
+        Gold[("Gold Layer\n(Rolling Window Features)")]
+    end
+
+    subgraph Core Analytics & ML Engines
+        FE["Feature Engineering Layer\n(Model-Ready Feature Vectors)"]
+        HDI["Flowguard Physics Engine\n(Pressure Residuals & HDI)"]
+        ML["7-Day Risk Classifier\n(Fault Mode Categorization)"]
+        RUL["RUL Regression Engine\n(MC Dropout Confidence Bounds)"]
+        SHAP["SHAP Explainability Engine\n(Sub-component Risk Allocation)"]
+    end
+
+    subgraph Operational API & Closed-Loop Workflows
+        Auth["JWT Multi-Tenant Auth\n(X-Tenant-ID Scoping)"]
+        WorkOrders["Auto Work Order Generation\n(Condition-Based Trigger)"]
+        Alerts["Threshold Alerts & Escalation"]
+        Schedule["RUL-Ranked Maintenance Schedule"]
+    end
+
+    SCADA --> Bronze
+    Meteo --> Bronze
+    Regional --> Bronze
+
+    Bronze --> Silver
+    Silver --> Gold
+
+    Gold --> FE
+    FE --> HDI
+    FE --> ML
+    HDI --> ML
+    FE --> RUL
+    ML --> SHAP
+
+    ML -->|Risk >= 0.70| WorkOrders
+    ML -->|Risk >= 0.70| Alerts
+    RUL --> Schedule
+    Auth -.-> WorkOrders
+    Auth -.-> Alerts
+    Auth -.-> Schedule
 ```
 
 ### Architectural Guardrails
@@ -113,20 +128,57 @@ app/
 
 ---
 
-## 5. Medallion Data Pipeline & Telemetry Ingestion
+## 5. Medallion Pipeline & Closed-Loop Workflow
 
-Flowguard enforces a 3-tier **Medallion Data Architecture**:
+### Medallion Data Pipeline Lifecycle
 
-1. **Bronze Layer (`bronze` schema):**
-   - Raw, append-only landing area storing sub-minute SCADA telemetry, Open-Meteo weather API payloads, and regional threat indicators.
-   - Tables: `bronze.pump_telemetry`, `bronze.weather_api`, `bronze.regional_risk`.
-2. **Silver Layer (`silver` schema):**
-   - Cleaned, quality-gated operational layer. Filters out invalid readings (e.g. `motor_current_amps <= 0`, `temperature_bearing_c > 200°C`).
-   - Tables: `silver.sensor_reading`, `silver.weather_reading`, `silver.regional_risk_score`.
-3. **Gold Layer (`gold` schema):**
-   - Feature store computing rolling aggregations (3-reading window) per pump asset.
-   - Metrics: `vibration_axial_rolling_avg`, `vibration_axial_rolling_std`, `temperature_bearing_rolling_avg`, `temperature_bearing_rolling_max`, `pressure_discharge_rolling_avg`.
-   - Table: `gold.pump_features`.
+```mermaid
+flowchart LR
+    subgraph Bronze Layer
+        B1["bronze.pump_telemetry\n(Raw sensor readings)"]
+        B2["bronze.weather_api\n(Raw JSON payloads)"]
+        B3["bronze.regional_risk\n(Raw threat metrics)"]
+    end
+
+    subgraph Silver Layer
+        S1["silver.sensor_reading\n(Quality filtered: Amps > 0, Temp <= 200°C)"]
+        S2["silver.weather_reading\n(Parsed temperature & rainfall)"]
+        S3["silver.regional_risk_score\n(Conformed security score)"]
+    end
+
+    subgraph Gold Layer
+        G1["gold.pump_features\n(Rolling 3-reading Window Avg, Std, Max)"]
+    end
+
+    B1 -->|Quality Gate| S1
+    B2 -->|JSON Extraction| S2
+    B3 -->|Scoring Gate| S3
+
+    S1 -->|Windowed Aggregations| G1
+```
+
+### Closed-Loop Operational Workflow
+
+```mermaid
+flowchart TD
+    Telemetry[Gold Feature Vector Ingestion] --> Physics[Compute Pressure Residual & HDI]
+    Physics --> RiskCalc[Calculate 7-Day Failure Risk Score]
+    
+    RiskCalc --> RiskCheck{Risk Score >= 0.70?}
+    RiskCheck -->|No| Safe[Telemetry Normal Log]
+    
+    RiskCheck -->|Yes| Alert[Raise Operational Alert]
+    Alert --> PriorityCheck{Risk Score >= 0.85?}
+    
+    PriorityCheck -->|Yes| HighPri[Set Work Order Priority = HIGH]
+    PriorityCheck -->|No| NormPri[Set Work Order Priority = NORMAL]
+    
+    HighPri & NormPri --> AutoWO[Auto-Generate Work Order\nSource: ALERT]
+    
+    RULCalc[Calculate RUL & MC Dropout Bounds] --> RankSchedule[Rank Maintenance Schedule by RUL]
+    AutoWO --> RankSchedule
+    RankSchedule --> Dispatch[Dispatch Field Engineer]
+```
 
 ---
 
@@ -152,45 +204,54 @@ Flowguard is seeded with KPC's 13 pipeline booster and depot stations from Coast
 
 ---
 
-## 7. Quickstart & Deployment
+## 7. Containerization & Docker Deployment
 
-Refer to [RUNBOOK.md](RUNBOOK.md) for complete environment setup instructions.
+Flowguard includes full Docker support for containerized deployment across multi-container environments.
 
-### Step 1: Environment Setup
+### Docker Container Topology
+
+```mermaid
+flowchart TB
+    subgraph Host / Edge Environment
+        Client["Web Client / API Consumer"]
+    end
+
+    subgraph Docker Network: flowgard_network
+        DB[("db Container\n(PostgreSQL 16 Alpine)\nPort 5433:5432")]
+        
+        subgraph Startup & Migration Sequence
+            Migrate["migrate Container\n(Alembic Upgrade Head)"]
+            Seed["seed Container\n(python scripts/seed_kpc_tenant.py)"]
+        end
+
+        API["api Container\n(FastAPI / Uvicorn)\nPort 8000:8000"]
+    end
+
+    Client -->|HTTP / JWT| API
+    DB <-->|Health Check| Migrate
+    Migrate -->|Completed| API
+    DB <-->|Schema Init| Seed
+    API <-->|SQLAlchemy 2.0| DB
+```
+
+### Running with Docker Compose
+
 ```bash
-# Clone repository & create local environment configuration
+# 1. Clone repository & configure environment
 cp .env.example .env
 
-# Create and activate virtual environment
-python -m venv .venv
-source .venv/bin/activate
+# 2. Build and launch PostgreSQL, Database Migrations, and FastAPI Backend
+docker compose up --build -d
 
-# Install dependencies
-pip install -r requirements.txt
+# 3. Seed KPC anchor tenant data
+docker compose --profile seed run --rm seed
+
+# 4. View real-time container logs
+docker compose logs -f api
 ```
 
-### Step 2: Database Setup & Seed
-```bash
-# Execute Alembic migrations to build multi-schema architecture
-alembic upgrade head
-
-# Seed KPC anchor tenant, stations, pumps, and administrative user
-python scripts/seed_kpc_tenant.py
-```
-
-### Step 3: Run Sensor Telemetry Simulator (Optional)
-```bash
-# Generate live simulated SCADA sensor telemetry into Bronze layer
-python scripts/run_simulator.py
-```
-
-### Step 4: Launch FastAPI Backend
-```bash
-uvicorn app.main:app --reload
-```
-- **Interactive Swagger Documentation:** `http://localhost:8000/docs`
-- **ReDoc Documentation:** `http://localhost:8000/redoc`
-- **Health Check Endpoint:** `http://localhost:8000/health`
+- **Interactive API Documentation:** `http://localhost:8000/docs`
+- **Health Diagnostics:** `http://localhost:8000/health`
 
 ---
 
@@ -206,7 +267,7 @@ The script runs two verification stages:
 2. **Pytest Suite:** Runs all unit tests covering all 13 modules.
 
 ```
-======================== 64 passed, 1 warning in 8.58s =========================
+======================== 64 passed, 1 warning in 7.01s =========================
 === All checks passed! Repository is healthy and ready to push. ===
 ```
 
