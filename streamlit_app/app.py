@@ -5,6 +5,7 @@ Municipal Water Transport (NCWSC) infrastructure monitoring.
 Communicates with the Flowguard FastAPI Backend via REST APIs.
 """
 import os
+import warnings
 from datetime import datetime
 
 import numpy as np
@@ -13,6 +14,11 @@ import plotly.express as px
 import plotly.graph_objects as go
 import requests
 import streamlit as st
+
+# Filter out Python syntax & Streamlit deprecation warnings on Streamlit Cloud
+warnings.filterwarnings("ignore", category=SyntaxWarning)
+warnings.filterwarnings("ignore", category=UserWarning)
+warnings.filterwarnings("ignore", message=".*use_container_width.*")
 
 # Configuration & Page Setup
 st.set_page_config(
@@ -926,7 +932,7 @@ with tab6:
 
     with sc1:
         st.markdown("### 🛢️ **Petroleum Transportation (KPC)**")
-        st.markdown("""
+        st.markdown(r"""
         - **Fluid Characteristics:** Refined petroleum (PMS, AGO, DPK), high density, explosive hazard.
         - **Core Physics Metrics:** Pressure residual ($\Delta P$), vibration ($\text{mm/s}$), bearing temperature ($^\circ\text{C}$).
         - **Critical Failure Modes:** Mechanical seal leakage, bearing degradation, thrust bearing wear.
@@ -935,7 +941,7 @@ with tab6:
 
     with sc2:
         st.markdown("### 💧 **Municipal Water Transport (NCWSC)**")
-        st.markdown("""
+        st.markdown(r"""
         - **Fluid Characteristics:** Potable / raw water, high volume flow, variable elevation gradient.
         - **Core Physics Metrics:** Suction head loss ($m$), pipe burst pressure residuals, turbidity ($\text{NTU}$), motor load current ($\text{A}$).
         - **Critical Failure Modes:** Impeller cavitation, suction starvation, pipe burst, sediment clogging.
