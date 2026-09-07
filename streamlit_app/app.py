@@ -145,13 +145,24 @@ with col4:
         unsafe_allow_html=True,
     )
 
+# Live Active Notification Banner
+active_crit = [
+    a for a in alerts_data if str(a.get("status", "")).lower() == "active" or str(a.get("severity", "")).upper() == "CRITICAL"
+]
+if active_crit:
+    st.warning(
+        f"🚨 **ACTIVE RISK NOTIFICATION**: {len(active_crit)} alert(s) active across KPC fleet. "
+        "Review the **Active Risk Alerts** tab for threshold details and management."
+    )
+
 st.write("")
 
 # Navigation Tabs
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "🗺️ Fleet Map & Stations",
     "⚡ Telemetry & HDI Engine",
     "🤖 7-Day Risk & RUL Predictor",
+    "🚨 Active Risk Alerts",
     "🔍 SHAP Explainability",
     "🛠️ Work Orders & Calendar",
 ])
@@ -302,8 +313,74 @@ with tab3:
         st.markdown("##### **Remaining Useful Life (RUL)**")
         st.metric("Estimated Service Window", f"{rul_days:.1f} Days", delta=f"Confidence: {ci_lower:.1f} - {ci_upper:.1f} Days")
 
-# Tab 4: SHAP Explainability
+# Tab 4: Active Risk Alerts & Notifications
 with tab4:
+    st.subheader("🚨 Real-Time Risk Alerts & Threshold Notifications")
+
+    col_a1, col_a2 = st.columns([3, 1])
+    with col_a1:
+        st.markdown(
+            "Dynamic threshold evaluations across vibration, bearing temperature, and discharge pressure metrics."
+        )
+    with col_a2:
+        if st.button("⚡ Evaluate Thresholds", type="primary", use_container_width=True):
+            if token and selected_pump_id:
+                eval_res = api_request("POST", f"/api/v1/alerts/pumps/{selected_pump_id}/evaluate", token=token)
+                if eval_res is not None:
+                    st.success("Threshold rules evaluated successfully!")
+                    st.rerun()
+
+    crit_cnt = sum(1 for a in alerts_data if str(a.get("severity", "")).upper() == "CRITICAL")
+    warn_cnt = sum(1 for a in alerts_data if str(a.get("severity", "")).upper() == "WARNING")
+    info_cnt = sum(1 for a in alerts_data if str(a.get("severity", "")).upper() == "INFO")
+
+    m1, m2, m3, m4 = st.columns(4)
+    with m1:
+        st.metric("Total Alerts", len(alerts_data))
+    with m2:
+        st.metric("Critical Alerts", crit_cnt)
+    with m3:
+        st.metric("Warning Alerts", warn_cnt)
+    with m4:
+        st.metric("Info / Cleared", info_cnt)
+
+    st.divider()
+
+    st.markdown("##### **Live Fleet Risk Notifications & Alert Log**")
+    status_sel = st.radio("Filter Alerts by Status:", ["All", "Active", "Acknowledged", "Resolved"], horizontal=True)
+    filt_alerts = alerts_data
+    if status_sel != "All":
+        filt_alerts = [a for a in alerts_data if str(a.get("status", "")).lower() == status_sel.lower()]
+
+    if filt_alerts:
+        st.dataframe(pd.DataFrame(filt_alerts), use_container_width=True)
+
+        st.markdown("##### **Interactive Alert Management**")
+        alert_map = {
+            f"Alert {str(a.get('id', ''))[:8]} - {a.get('rule_type', 'THRESHOLD')} ({a.get('status', 'active')})": a["id"]
+            for a in filt_alerts if "id" in a
+        }
+        if alert_map:
+            sel_alert_lbl = st.selectbox("Select Alert to Manage", list(alert_map.keys()))
+            sel_alert_id = alert_map[sel_alert_lbl]
+            ca1, ca2 = st.columns(2)
+            with ca1:
+                if st.button("Acknowledge Alert", use_container_width=True):
+                    if token:
+                        api_request("PATCH", f"/api/v1/alerts/{sel_alert_id}", data={"status": "acknowledged"}, token=token)
+                        st.success("Alert acknowledged!")
+                        st.rerun()
+            with ca2:
+                if st.button("Resolve Alert", use_container_width=True):
+                    if token:
+                        api_request("PATCH", f"/api/v1/alerts/{sel_alert_id}", data={"status": "resolved"}, token=token)
+                        st.success("Alert resolved!")
+                        st.rerun()
+    else:
+        st.info("No active or historical alerts found matching the selected status filter.")
+
+# Tab 5: SHAP Explainability
+with tab5:
     st.subheader("Explainable AI (SHAP Sub-component Risk Breakdown)")
     
     shap_data = {"Bearing": 42.5, "Impeller": 28.0, "Mechanical Seal": 18.5, "Motor": 11.0}
@@ -324,8 +401,8 @@ with tab4:
     )
     st.plotly_chart(fig_shap, use_container_width=True)
 
-# Tab 5: Work Orders & Calendar
-with tab5:
+# Tab 6: Work Orders & Calendar
+with tab6:
     st.subheader("Condition-Based Work Orders & RUL-Ranked Schedule")
     
     if st.button("🔄 Trigger Fleet RUL Schedule Re-Ranking", type="primary"):
