@@ -17,6 +17,14 @@ def compute_and_store_gold_features(session: Session, tenant_id: UUID, pump_id: 
         "rows": (-2, 0)
     }
 
+    is_sqlite = session.bind and session.bind.dialect.name == "sqlite"
+    if is_sqlite:
+        max_vib = func.max(SensorReading.vibration_axial_mm_s).over(**window_kwargs)
+        min_vib = func.min(SensorReading.vibration_axial_mm_s).over(**window_kwargs)
+        vib_std_expr = (max_vib - min_vib) / 2.0
+    else:
+        vib_std_expr = func.stddev(SensorReading.vibration_axial_mm_s).over(**window_kwargs)
+
     query = (
         select(
             SensorReading.timestamp,
@@ -26,7 +34,7 @@ def compute_and_store_gold_features(session: Session, tenant_id: UUID, pump_id: 
             SensorReading.pressure_discharge_psi,
             SensorReading.motor_current_amps,
             func.avg(SensorReading.vibration_axial_mm_s).over(**window_kwargs).label("vib_avg"),
-            func.stddev(SensorReading.vibration_axial_mm_s).over(**window_kwargs).label("vib_std"),
+            vib_std_expr.label("vib_std"),
             func.avg(SensorReading.temperature_bearing_c).over(**window_kwargs).label("temp_avg"),
             func.max(SensorReading.temperature_bearing_c).over(**window_kwargs).label("temp_max"),
             func.avg(SensorReading.pressure_discharge_psi).over(**window_kwargs).label("press_avg"),

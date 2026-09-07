@@ -18,12 +18,12 @@ from app.pump.models import Pump
 from app.station.models import Station
 
 
-def _ensure_pump(db_session: Session, tenant_id: uuid.UUID) -> str:
+def _ensure_pump(db_session: Session, tenant_id: uuid.UUID) -> uuid.UUID:
     """Helper to guarantee a pump exists to satisfy Bronze FK constraints."""
     # 1. Check if the Pytest fixtures already built a pump
     pump = db_session.scalar(select(Pump).where(Pump.tenant_id == tenant_id).limit(1))
     if pump:
-        return str(pump.id)
+        return pump.id
         
     # 2. If not, build a dummy Station and Pump for the test
     station = db_session.scalar(select(Station).where(Station.tenant_id == tenant_id).limit(1))
@@ -36,7 +36,7 @@ def _ensure_pump(db_session: Session, tenant_id: uuid.UUID) -> str:
     new_pump = Pump(tenant_id=tenant_id, station_id=station.id, tag_number="SMOKE-PUMP")
     db_session.add(new_pump)
     db_session.commit()
-    return str(new_pump.id)
+    return new_pump.id
 
 
 def test_bronze_landing_is_tenant_scoped(db_session: Session, tenant_a, tenant_b):
@@ -81,8 +81,9 @@ def test_silver_conforming_smoke(db_session: Session, tenant_a):
 
 
 def test_gold_aggregation_smoke(db_session: Session, tenant_a):
+    pump_id = _ensure_pump(db_session, tenant_a.id)
     gold_services.compute_and_store_gold_features(
-        db_session, tenant_a.id, uuid.uuid4()
+        db_session, tenant_a.id, pump_id
     )
 
 
