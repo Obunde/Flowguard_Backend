@@ -43,7 +43,12 @@ Flowguard transitions KPC to continuous, condition-driven risk mitigation:
 
 ## 3. System Architecture & High-Level Design
 
-Flowguard is built as a modular, vertical-slice backend using **FastAPI**, **SQLAlchemy 2.0**, **PostgreSQL**, and **Pydantic v2**.
+Flowguard is built as a modular, multi-tenant vertical-slice backend using **FastAPI**, **SQLAlchemy 2.0**, **PostgreSQL**, and **Pydantic v2**:
+
+- **Core Framework:** FastAPI, Pydantic v2
+- **ORM & Database:** SQLAlchemy 2.0, Alembic migrations, PostgreSQL (with SQLite in-memory fallback for testing)
+- **Authentication & Security:** Multi-tenant JWT auth (tenant + role claims carried in token), bcrypt password hashing, invite-only onboarding with forced first-login password reset
+- **Testing & Tooling:** Pytest, pytest-cov, Ruff, `uv` / standard `venv`
 
 ```mermaid
 flowchart TB
@@ -102,6 +107,16 @@ flowchart TB
 3. **Mandatory Multi-Tenancy:** Every tenant-scoped entity inherits `TenantScopedMixin`. Queries are forced through `get_current_tenant_id` at dependency injection, preventing cross-tenant leakage.
 4. **Separation of Reference Data from Telemetry:** Telemetry flows through `app/etl` (`bronze`, `silver`, `gold`), leaving master asset tables (`station`, `pump`, `tenant`) read-only to the pipeline.
 5. **Zero Secrets in Code:** Configured strictly via `app/core/config.py` from `.env`.
+
+### Roles & Onboarding
+
+| Role | Scope | Responsibilities |
+| :--- | :--- | :--- |
+| `platform_admin` | Cross-tenant (no `tenant_id`) | Seeded once (`scripts/seed_platform_admin.py`). Onboards & manages tenants; blocked from every tenant-scoped route. |
+| `admin` | Single tenant | Created automatically when a tenant is onboarded. Onboards & manages that tenant's users. |
+| `planner` / `technician` / `viewer` | Single tenant | Operational users invited by their tenant `admin`. |
+
+**Onboarding flow** (identical for tenants and users): the inviter supplies an email; the system creates the account with a random first-time password and emails it via SMTP (`app/core/email.py`). On first login the account receives only a short-lived **reset token** (`POST /api/v1/users/login` → `reset_required: true`); it must call `POST /api/v1/users/reset-password` to set a real password before any access token is issued.
 
 ---
 
@@ -248,6 +263,10 @@ docker compose --profile seed run --rm seed
 
 # 4. View real-time container logs
 docker compose logs -f api
+
+# 5. (Optional local) Seed platform admin & KPC reference data
+python scripts/seed_platform_admin.py
+python scripts/seed_kpc_tenant.py
 ```
 
 - **Interactive API Documentation:** `http://localhost:8000/docs`

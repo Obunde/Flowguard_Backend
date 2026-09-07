@@ -75,9 +75,8 @@ source .venv/bin/activate
 pip install -r requirements.txt -r requirements-dashboard.txt
 
 # 3. Run Alembic migrations to apply full database schema
-alembic upgrade head
-
-# 4. Seed KPC anchor tenant reference data (13 stations + pump fleet + initial users)
+# 4. Seed platform admin account and KPC anchor tenant reference data
+python scripts/seed_platform_admin.py
 python scripts/seed_kpc_tenant.py
 ```
 
@@ -89,7 +88,8 @@ uv sync
 # 2. Execute Alembic schema migrations
 uv run alembic upgrade head
 
-# 3. Seed KPC anchor tenant reference data
+# 3. Seed platform admin and KPC anchor tenant reference data
+uv run python scripts/seed_platform_admin.py
 uv run python scripts/seed_kpc_tenant.py
 ```
 
@@ -199,15 +199,15 @@ The Flowguard platform enforces strict multi-tenant scoping (`tenant_id`) and do
 
 | Module | Track | Primary Scope & Functional Responsibility | API Prefix / Service |
 | :--- | :--- | :--- | :--- |
-| `tenant` | Track A | Multi-tenant profile, branding, fluid properties, baseline operational thresholds | `/api/v1/tenants` |
-| `user` | Track A | User management, role-based access (admin, operator, engineer), JWT authentication | `/api/v1/users` |
+| `tenant` | Track A | Multi-tenant onboarding/branding/thresholds; platform-admin gated; creates tenant's first `admin` | `/api/v1/tenants` |
+| `user` | Track A | Invite-only user onboarding, role-based access (admin, operator, engineer), JWT login, password reset | `/api/v1/users` |
 | `station` | Track B | KPC pump station metadata across PS1 (Mombasa) to PS13 (Kisumu) | `/api/v1/stations` |
 | `pump` | Track B | Centrifugal pump reference data, motor ratings, and lifecycle metadata | `/api/v1/pumps` |
 | `etl` | Shared | Medallion data pipeline (Bronze raw ingest -> Silver telemetry -> Gold features) | Internal service |
-| `feature_engineering` | Track A | Rolling-window feature aggregation (vibration RMS, temperature gradients) | Internal service |
+| `feature_engineering` | Track A | Rolling-window feature vector construction & Gold-layer flattening | Internal service |
 | `flowgard_engine` | Track B | Physics-based pressure residual model & Health Deviation Index (HDI) computation | `/api/v1/flowgard-engine` |
 | `prediction` | Track B | XGBoost 7-day failure risk score & failure mode classification | `/api/v1/predictions` |
-| `rul` | Track A | Remaining Useful Life (RUL) regression in days with MC Dropout confidence bounds | `/api/v1/rul` |
+| `rul` | Track A | Remaining Useful Life (RUL) regression in days/hours with MC Dropout confidence bounds | `/api/v1/rul` |
 | `explainability` | Track B | SHAP sub-assembly feature attributions (bearing, impeller, seal, motor) | `/api/v1/explainability` |
 | `model_metrics` | Track A | Model evaluation metrics, accuracy, F1-score, confusion matrix tracking | `/api/v1/model-metrics` |
 | `alert` | Track A | Dynamic threshold evaluation, real-time risk alert triggers & notifications | `/api/v1/alerts` |
@@ -230,16 +230,25 @@ To reset local development data to a clean state:
 ```bash
 python reset_db.py
 alembic upgrade head
+python scripts/seed_platform_admin.py
 python scripts/seed_kpc_tenant.py
 ```
+
+### Onboarding a Tenant and Its Users
+
+1. Log in as the platform admin (`POST /api/v1/users/login`, default `platform.admin@flow.com` / `Admin@123`).
+2. `POST /api/v1/tenants` with the tenant config plus `admin_email` / `admin_full_name`. This creates the tenant and its first `admin` user and emails that admin a first-time password (SMTP must be configured, or the call returns `503` with the tenant still created).
+3. The tenant admin logs in with the emailed password → gets `reset_required: true` + a `reset_token` → `POST /api/v1/users/reset-password` to set a real password.
+4. The tenant admin invites more users via `POST /api/v1/users` (`email`, `full_name`, `role`); each follows the same first-login reset flow.
 
 ### Handling CORS Cross-Origin Issues
 If the Streamlit dashboard fails to make requests to the API backend due to CORS policies:
 1. Ensure `CORS_ALLOW_ORIGINS` in `.env` includes `http://localhost:8501` (or your production frontend URL).
 2. Restart the FastAPI uvicorn server or container.
 
-### Pre-Push Verification Checklist
-Before submitting a pull request or pushing code to `main`:
-1. Verify no secrets, credentials, or `.env` files are stage-committed (`git status`).
-2. Run `./scripts/check.sh` to ensure 0 lint errors and 100% test pass rate.
-3. Validate Swagger UI documentation loads correctly at `http://localhost:8000/docs`.
+### Pre-Commit Security Checklist
+Before committing or pushing to GitHub:
+1. Verify no `.env` file or secret credentials are stage-committed (`git status`).
+2. Run unit tests (`pytest -v`).
+3. Validate OpenAPI schema at `http://localhost:8000/docs`.
+>>>>>>> origin/feat/feature_engineering
