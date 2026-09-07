@@ -22,7 +22,15 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000").rstrip("/")
+# Retrieve API_BASE_URL from environment variable (or Streamlit secrets) with local fallback
+DEFAULT_API_URL = os.getenv(
+    "API_BASE_URL",
+    st.secrets.get("API_BASE_URL", "https://flowguard-backend-3t4x.onrender.com")
+    if hasattr(st, "secrets") and "API_BASE_URL" in getattr(st, "secrets", {})
+    else os.getenv("API_BASE_URL", "https://flowguard-backend-3t4x.onrender.com"),
+).rstrip("/")
+
+API_BASE_URL = DEFAULT_API_URL
 
 # Role-Based Access Control (RBAC) Definition
 ROLE_PERMISSIONS = {
@@ -356,7 +364,14 @@ with st.sidebar:
             st.rerun()
 
     st.divider()
-    st.caption(f"Connected Backend: `{API_BASE_URL}`")
+    custom_api_url = st.text_input(
+        "🌐 Backend REST API URL",
+        value=DEFAULT_API_URL,
+        help="Reads from API_BASE_URL env var. Edit here to connect to Render or custom server.",
+    )
+    if custom_api_url:
+        API_BASE_URL = custom_api_url.rstrip("/")
+    st.caption(f"Active API Endpoint: `{API_BASE_URL}`")
 
 
 # Active Dataset Setup based on selected Domain
