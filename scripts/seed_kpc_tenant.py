@@ -17,13 +17,14 @@ Usage:
 from __future__ import annotations
 
 import sys
-from datetime import date
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from sqlalchemy.orm import Session  # noqa: E402
 
+from app.alert.models import Alert, AlertSeverity, AlertStatus  # noqa: E402
 from app.core.db import SessionLocal  # noqa: E402
 from app.pump.models import Pump, PumpStatus  # noqa: E402
 from app.station.models import Station  # noqa: E402
@@ -133,6 +134,47 @@ def seed(db: Session) -> Tenant:
             db.add(pump)
             print(f"    created pump {tag_number}")
         db.commit()
+
+    # Seed initial active risk alerts for KPC tenant
+    first_pump = db.query(Pump).filter(Pump.tenant_id == tenant.id).first()
+    if first_pump and db.query(Alert).filter(Alert.tenant_id == tenant.id).count() == 0:
+        now = datetime.now(UTC)
+        alerts_to_seed = [
+            Alert(
+                tenant_id=tenant.id,
+                station_id=first_pump.station_id,
+                pump_id=first_pump.id,
+                severity=AlertSeverity.CRITICAL,
+                status=AlertStatus.TRIGGERED,
+                message="CRITICAL: Vibration RMS (8.4 mm/s) breached safety threshold (7.1 mm/s). High risk of bearing failure.",
+                triggered_at=now - timedelta(minutes=45),
+                source="threshold_evaluation",
+            ),
+            Alert(
+                tenant_id=tenant.id,
+                station_id=first_pump.station_id,
+                pump_id=first_pump.id,
+                severity=AlertSeverity.WARNING,
+                status=AlertStatus.TRIGGERED,
+                message="WARNING: Bearing temperature (68.5 °C) exceeds normal operating range (60.0 °C). Loss of lubrication efficiency.",
+                triggered_at=now - timedelta(hours=2),
+                source="threshold_evaluation",
+            ),
+            Alert(
+                tenant_id=tenant.id,
+                station_id=first_pump.station_id,
+                pump_id=first_pump.id,
+                severity=AlertSeverity.WARNING,
+                status=AlertStatus.ACKNOWLEDGED,
+                message="WARNING: Discharge pressure drop (510 psi) below baseline limit (580 psi). Mechanical seal degradation.",
+                triggered_at=now - timedelta(hours=5),
+                acknowledged_at=now - timedelta(hours=3),
+                source="threshold_evaluation",
+            ),
+        ]
+        db.add_all(alerts_to_seed)
+        db.commit()
+        print(f"  created {len(alerts_to_seed)} starter active risk alerts")
 
     return tenant
 

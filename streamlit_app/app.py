@@ -39,6 +39,77 @@ KPC_STATIONS = [
     {"code": "PS13", "name": "PS13 Kisumu Depot", "lat": -0.0917, "lon": 34.7680, "region": "Nyanza", "capacity": 2000},
 ]
 
+DEMO_ALERTS = [
+    {
+        "id": "alt-kpc-001",
+        "tag_number": "PUMP-PS1-01",
+        "station_code": "PS1",
+        "station_name": "PS1 Mombasa",
+        "rule_type": "VIBRATION_THRESHOLD",
+        "metric_name": "vibration_rms",
+        "metric_value": 7.42,
+        "threshold_value": 4.50,
+        "severity": "CRITICAL",
+        "status": "active",
+        "created_at": "2026-09-07 20:15:00",
+        "message": (
+            "Critical RMS vibration breach on Primary Terminal Export Pump "
+            "PUMP-PS1-01 (7.42 mm/s > threshold 4.50 mm/s)"
+        ),
+    },
+    {
+        "id": "alt-kpc-002",
+        "tag_number": "PUMP-PS6-02",
+        "station_code": "PS6",
+        "station_name": "PS6 Nairobi Depot",
+        "rule_type": "BEARING_TEMP_THRESHOLD",
+        "metric_name": "bearing_temperature",
+        "metric_value": 84.50,
+        "threshold_value": 75.00,
+        "severity": "WARNING",
+        "status": "active",
+        "created_at": "2026-09-07 21:00:00",
+        "message": (
+            "Elevated drive-end bearing temperature on Booster Pump "
+            "PUMP-PS6-02 (84.5°C > threshold 75.0°C)"
+        ),
+    },
+    {
+        "id": "alt-kpc-003",
+        "tag_number": "PUMP-PS11-01",
+        "station_code": "PS11",
+        "station_name": "PS11 Eldoret Depot",
+        "rule_type": "PRESSURE_DROP_THRESHOLD",
+        "metric_name": "discharge_pressure",
+        "metric_value": 410.00,
+        "threshold_value": 500.00,
+        "severity": "WARNING",
+        "status": "active",
+        "created_at": "2026-09-07 22:30:00",
+        "message": (
+            "Abnormal discharge pressure drop detected on Transfer Pump "
+            "PUMP-PS11-01 (410 psi < threshold 500 psi)"
+        ),
+    },
+    {
+        "id": "alt-kpc-004",
+        "tag_number": "PUMP-PS13-02",
+        "station_code": "PS13",
+        "station_name": "PS13 Kisumu Depot",
+        "rule_type": "HDI_DEVIATION",
+        "metric_name": "health_deviation_index",
+        "metric_value": 0.38,
+        "threshold_value": 0.35,
+        "severity": "INFO",
+        "status": "resolved",
+        "created_at": "2026-09-07 18:00:00",
+        "message": (
+            "Minor HDI deviation resolved following routine lube oil filter "
+            "replacement on PUMP-PS13-02"
+        ),
+    },
+]
+
 
 def api_request(method: str, endpoint: str, data: dict = None, token: str = None) -> dict | list | None:
     """Helper to perform authenticated API calls to Flowguard backend."""
@@ -55,7 +126,7 @@ def api_request(method: str, endpoint: str, data: dict = None, token: str = None
             response = requests.patch(url, json=data, headers=headers, timeout=10)
         else:
             return None
-        
+
         if response.status_code in (200, 201):
             return response.json()
         return None
@@ -114,7 +185,10 @@ with st.sidebar:
 
 # Main Dashboard Header
 st.markdown("<div class='main-header'>🛡️ Flowguard Operational Maintenance Dashboard</div>", unsafe_allow_html=True)
-st.markdown("<div class='sub-header'>Kenya Pipeline Company (KPC) 1,342 km Infrastructure Monitoring</div>", unsafe_allow_html=True)
+st.markdown(
+    "<div class='sub-header'>Kenya Pipeline Company (KPC) 1,342 km Infrastructure Monitoring</div>",
+    unsafe_allow_html=True,
+)
 
 token = st.session_state["jwt_token"]
 
@@ -123,11 +197,14 @@ col1, col2, col3, col4 = st.columns(4)
 
 stations_data = api_request("GET", "/api/v1/stations", token=token) or KPC_STATIONS
 pumps_data = api_request("GET", "/api/v1/pumps", token=token) or []
-alerts_data = api_request("GET", "/api/v1/alerts", token=token) or []
+alerts_data = api_request("GET", "/api/v1/alerts", token=token) or DEMO_ALERTS
 work_orders = api_request("GET", "/api/v1/work-orders", token=token) or []
 
 with col1:
-    st.markdown("<div class='card-kpi'><div class='card-title'>KPC PUMP STATIONS</div><div class='card-value'>13</div></div>", unsafe_allow_html=True)
+    st.markdown(
+        "<div class='card-kpi'><div class='card-title'>KPC PUMP STATIONS</div><div class='card-value'>13</div></div>",
+        unsafe_allow_html=True,
+    )
 with col2:
     val = len(pumps_data) or 26
     st.markdown(
@@ -147,7 +224,8 @@ with col4:
 
 # Live Active Notification Banner
 active_crit = [
-    a for a in alerts_data if str(a.get("status", "")).lower() == "active" or str(a.get("severity", "")).upper() == "CRITICAL"
+    a for a in alerts_data
+    if str(a.get("status", "")).lower() == "active" or str(a.get("severity", "")).upper() == "CRITICAL"
 ]
 if active_crit:
     st.warning(
@@ -170,48 +248,127 @@ tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
 # Tab 1: Fleet Overview & Map
 with tab1:
     st.subheader("Kenya Pipeline Network Corridor (Mombasa to Kisumu)")
-    df_map = pd.DataFrame(KPC_STATIONS)
-    
-    if hasattr(px, "scatter_map"):
-        fig_map = px.scatter_map(
-            df_map,
-            lat="lat",
-            lon="lon",
-            hover_name="name",
-            hover_data=["code", "region", "capacity"],
-            color="region",
-            size="capacity",
-            zoom=5.8,
-            center={"lat": -1.25, "lon": 36.8},
-            height=450,
-            title="KPC 13 Pump Stations Location Map",
+
+    station_alert_severity = {}
+    for a in alerts_data:
+        st_code = a.get("station_code") or a.get("station_id", "")
+        if not st_code:
+            for s in KPC_STATIONS:
+                if s["code"] in str(a.get("tag_number", "")) or s["code"] in str(a.get("message", "")):
+                    st_code = s["code"]
+                    break
+        if st_code:
+            sev = str(a.get("severity", "")).upper()
+            if sev == "CRITICAL":
+                station_alert_severity[st_code] = "CRITICAL"
+            elif sev == "WARNING" and station_alert_severity.get(st_code) != "CRITICAL":
+                station_alert_severity[st_code] = "WARNING"
+
+    map_stations = []
+    for s in KPC_STATIONS:
+        health = station_alert_severity.get(s["code"], "NORMAL")
+        color = "#DC2626" if health == "CRITICAL" else "#D97706" if health == "WARNING" else "#16A34A"
+        map_stations.append({**s, "health": health, "color": color})
+
+    df_map = pd.DataFrame(map_stations)
+
+    fig_map = go.Figure()
+
+    fig_map.add_trace(go.Scattergeo(
+        lat=df_map["lat"],
+        lon=df_map["lon"],
+        mode="lines",
+        line=dict(width=3, color="#1E3A8A"),
+        name="KPC Pipeline Corridor (1,342 km)",
+        hoverinfo="none",
+    ))
+
+    for health_status, color, label in [
+        ("CRITICAL", "#DC2626", "Critical Alarm"),
+        ("WARNING", "#D97706", "Warning Active"),
+        ("NORMAL", "#16A34A", "Normal Operational"),
+    ]:
+        sub_df = df_map[df_map["health"] == health_status]
+        if not sub_df.empty:
+            fig_map.add_trace(go.Scattergeo(
+                lat=sub_df["lat"],
+                lon=sub_df["lon"],
+                mode="markers+text",
+                marker=dict(size=14, color=color, symbol="circle", line=dict(width=1.5, color="#FFFFFF")),
+                text=sub_df["code"],
+                textposition="top center",
+                name=f"Health: {label}",
+                hovertext=[
+                    f"<b>{row['name']} ({row['code']})</b><br>"
+                    f"Region: {row['region']}<br>"
+                    f"Capacity: {row['capacity']:,} m³/day<br>"
+                    f"Health Status: <b>{row['health']}</b>"
+                    for _, row in sub_df.iterrows()
+                ],
+                hoverinfo="text",
+            ))
+
+    fig_map.update_layout(
+        geo=dict(
+            scope="africa",
+            center=dict(lat=-1.25, lon=36.8),
+            projection_scale=6.5,
+            showland=True,
+            landcolor="#F8FAFC",
+            showcountries=True,
+            countrycolor="#CBD5E1",
+            showlakes=True,
+            lakecolor="#E0F2FE",
+        ),
+        height=500,
+        margin={"r": 0, "t": 30, "l": 0, "b": 0},
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+    )
+    st.plotly_chart(fig_map, use_container_width=True)
+
+    st.markdown("---")
+    st.markdown("##### 🔎 **Station Inspector**")
+    sel_st_code = st.selectbox(
+        "Select Station to Inspect",
+        options=[s["code"] for s in KPC_STATIONS],
+        format_func=lambda c: next(
+            f"{s['code']} - {s['name']} ({s['region']})" for s in KPC_STATIONS if s["code"] == c
+        ),
+    )
+    st_info = next(s for s in map_stations if s["code"] == sel_st_code)
+
+    st_col1, st_col2, st_col3, st_col4 = st.columns(4)
+    with st_col1:
+        st.metric("Station Name", st_info["name"])
+    with st_col2:
+        st.metric("Region", st_info["region"])
+    with st_col3:
+        st.metric("Capacity", f"{st_info['capacity']:,} m³/day")
+    with st_col4:
+        health_badge = (
+            "🔴 CRITICAL" if st_info["health"] == "CRITICAL"
+            else "🟡 WARNING" if st_info["health"] == "WARNING"
+            else "🟢 NORMAL"
         )
-        fig_map.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0})
-        st.plotly_chart(fig_map, use_container_width=True)
-    elif hasattr(px, "scatter_mapbox"):
-        fig_map = px.scatter_mapbox(
-            df_map,
-            lat="lat",
-            lon="lon",
-            hover_name="name",
-            hover_data=["code", "region", "capacity"],
-            color="region",
-            size="capacity",
-            zoom=5.8,
-            center={"lat": -1.25, "lon": 36.8},
-            height=450,
-            mapbox_style="open-street-map",
-            title="KPC 13 Pump Stations Location Map",
-        )
-        fig_map.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0})
-        st.plotly_chart(fig_map, use_container_width=True)
+        st.metric("Operational Health", health_badge)
+
+    st_alerts = [
+        a for a in alerts_data
+        if a.get("station_code") == sel_st_code
+        or st_info["code"] in str(a.get("tag_number", ""))
+        or st_info["code"] in str(a.get("message", ""))
+    ]
+    if st_alerts:
+        st.warning(f"⚠️ {len(st_alerts)} alert(s) associated with {st_info['name']}:")
+        for sa in st_alerts:
+            st.caption(f"• [{sa.get('severity')}] {sa.get('message')}")
     else:
-        st.map(df_map, latitude="lat", longitude="lon")
+        st.success(f"✅ All pumps at {st_info['name']} are operating within normal thresholds.")
 
 # Tab 2: Telemetry & HDI Engine
 with tab2:
     st.subheader("Real-Time Pump Sensor Telemetry & Health Deviation Index (HDI)")
-    
+
     selected_pump_id = None
     if pumps_data:
         pump_options = {f"{p.get('tag_number', 'PUMP')}-{p.get('id', '')[:6]}": p["id"] for p in pumps_data}
@@ -249,7 +406,7 @@ with tab2:
                 name="Bearing Temp (°C)",
             )
         )
-        fig_trend.update_layout(height=350, margin={"r":10,"t":30,"l":10,"b":10})
+        fig_trend.update_layout(height=350, margin={"r": 10, "t": 30, "l": 10, "b": 10})
         st.plotly_chart(fig_trend, use_container_width=True)
 
     with col_t2:
@@ -275,15 +432,15 @@ with tab2:
                 ],
             }
         ))
-        fig_gauge.update_layout(height=320, margin={"r":10,"t":40,"l":10,"b":10})
+        fig_gauge.update_layout(height=320, margin={"r": 10, "t": 40, "l": 10, "b": 10})
         st.plotly_chart(fig_gauge, use_container_width=True)
 
 # Tab 3: 7-Day Risk & RUL Predictor
 with tab3:
     st.subheader("7-Day Failure Risk Classifier & Remaining Useful Life (RUL)")
-    
+
     col_p1, col_p2 = st.columns(2)
-    
+
     risk_score = 0.76
     predicted_class = "bearing_fault"
     rul_days = 12.4
@@ -305,13 +462,17 @@ with tab3:
     with col_p1:
         st.markdown("##### **7-Day Failure Risk Score**")
         st.progress(risk_score, text=f"Risk Score: {risk_score * 100:.1f}%")
-        
+
         badge_color = "red" if risk_score >= 0.7 else "yellow" if risk_score >= 0.35 else "green"
         st.markdown(f"Predicted Fault Mode: **:{badge_color}[{predicted_class.upper()}]**")
 
     with col_p2:
         st.markdown("##### **Remaining Useful Life (RUL)**")
-        st.metric("Estimated Service Window", f"{rul_days:.1f} Days", delta=f"Confidence: {ci_lower:.1f} - {ci_upper:.1f} Days")
+        st.metric(
+            "Estimated Service Window",
+            f"{rul_days:.1f} Days",
+            delta=f"Confidence: {ci_lower:.1f} - {ci_upper:.1f} Days",
+        )
 
 # Tab 4: Active Risk Alerts & Notifications
 with tab4:
@@ -367,22 +528,30 @@ with tab4:
             with ca1:
                 if st.button("Acknowledge Alert", use_container_width=True):
                     if token:
-                        api_request("PATCH", f"/api/v1/alerts/{sel_alert_id}", data={"status": "acknowledged"}, token=token)
+                        api_request(
+                            "PATCH", f"/api/v1/alerts/{sel_alert_id}", data={"status": "acknowledged"}, token=token
+                        )
                         st.success("Alert acknowledged!")
                         st.rerun()
+                    else:
+                        st.info("Demo Mode: Alert acknowledged in UI state.")
             with ca2:
                 if st.button("Resolve Alert", use_container_width=True):
                     if token:
-                        api_request("PATCH", f"/api/v1/alerts/{sel_alert_id}", data={"status": "resolved"}, token=token)
+                        api_request(
+                            "PATCH", f"/api/v1/alerts/{sel_alert_id}", data={"status": "resolved"}, token=token
+                        )
                         st.success("Alert resolved!")
                         st.rerun()
+                    else:
+                        st.info("Demo Mode: Alert resolved in UI state.")
     else:
         st.info("No active or historical alerts found matching the selected status filter.")
 
 # Tab 5: SHAP Explainability
 with tab5:
     st.subheader("Explainable AI (SHAP Sub-component Risk Breakdown)")
-    
+
     shap_data = {"Bearing": 42.5, "Impeller": 28.0, "Mechanical Seal": 18.5, "Motor": 11.0}
     if selected_pump_id and token:
         shap_res = api_request("POST", f"/api/v1/explainability/pumps/{selected_pump_id}/trigger", token=token)
@@ -404,7 +573,7 @@ with tab5:
 # Tab 6: Work Orders & Calendar
 with tab6:
     st.subheader("Condition-Based Work Orders & RUL-Ranked Schedule")
-    
+
     if st.button("🔄 Trigger Fleet RUL Schedule Re-Ranking", type="primary"):
         if token:
             rank_res = api_request("POST", "/api/v1/maintenance-schedule/rank", token=token)
