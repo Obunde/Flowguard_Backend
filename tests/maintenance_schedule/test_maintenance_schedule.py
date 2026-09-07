@@ -47,6 +47,26 @@ def test_service_enforces_tenant_scope(db_session: Session, station_a, station_b
     assert services.list_scheduled_maintenance(db_session, station_b.tenant_id) == []
 
 
-def test_rank_schedule_by_rul_not_implemented(db_session: Session, tenant_a):
-    with pytest.raises(NotImplementedError):
-        services.rank_schedule_by_rul(db_session, tenant_a.id)
+def test_rank_schedule_by_rul_success(db_session: Session, station_a):
+    pump = Pump(
+        tenant_id=station_a.tenant_id,
+        station_id=station_a.id,
+        tag_number="PS1-P02",
+        status=PumpStatus.OPERATIONAL,
+    )
+    db_session.add(pump)
+    db_session.commit()
+
+    services.create_scheduled_maintenance(
+        db_session,
+        station_a.tenant_id,
+        ScheduledMaintenanceCreate(
+            pump_id=pump.id,
+            station_id=station_a.id,
+            scheduled_date=date.today() + timedelta(days=7),
+        ),
+    )
+
+    ranked = services.rank_schedule_by_rul(db_session, station_a.tenant_id)
+    assert len(ranked) >= 1
+    assert ranked[0].priority_rank == 1
