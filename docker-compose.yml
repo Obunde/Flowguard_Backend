@@ -16,11 +16,9 @@ services:
     volumes:
       - flowgard_pgdata:/var/lib/postgresql/data
     ports:
-      # Host 5433 -> container 5432: avoids clashing with a Postgres already
-      # running natively on the host's 5432. `api`/`migrate` talk to `db` on
-      # the compose network directly and don't use this mapping at all;
-      # it's only for connecting a host-side psql/GUI client.
-      - "5433:5432"
+      # Host port 5434 -> container 5432: avoids clashing with host Postgres services.
+      # `api`/`migrate` talk to `db` on the internal compose network (db:5432).
+      - "${POSTGRES_HOST_PORT:-5434}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-flowgard} -d ${POSTGRES_DB:-flowgard}"]
       interval: 5s
