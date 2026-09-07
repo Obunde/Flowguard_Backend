@@ -263,6 +263,168 @@ WATER_DEMO_ALERTS = [
     },
 ]
 
+DEMO_PUMPS = [
+    {
+        "id": "pmp-kpc-101",
+        "tag_number": "PUMP-PS1-01",
+        "station_code": "PS1",
+        "station_name": "PS1 Mombasa",
+        "pump_type": "Multistage Centrifugal Export Pump",
+        "flow_rate_m3h": 650.0,
+        "status": "critical_risk",
+    },
+    {
+        "id": "pmp-kpc-102",
+        "tag_number": "PUMP-PS1-02",
+        "station_code": "PS1",
+        "station_name": "PS1 Mombasa",
+        "pump_type": "Multistage Centrifugal Booster",
+        "flow_rate_m3h": 620.0,
+        "status": "normal",
+    },
+    {
+        "id": "pmp-kpc-601",
+        "tag_number": "PUMP-PS6-01",
+        "station_code": "PS6",
+        "station_name": "PS6 Nairobi Depot",
+        "pump_type": "Mainline Transfer Pump",
+        "flow_rate_m3h": 580.0,
+        "status": "normal",
+    },
+    {
+        "id": "pmp-kpc-602",
+        "tag_number": "PUMP-PS6-02",
+        "station_code": "PS6",
+        "station_name": "PS6 Nairobi Depot",
+        "pump_type": "Mainline Booster Pump",
+        "flow_rate_m3h": 540.0,
+        "status": "warning_risk",
+    },
+    {
+        "id": "pmp-kpc-1101",
+        "tag_number": "PUMP-PS11-01",
+        "station_code": "PS11",
+        "station_name": "PS11 Eldoret Depot",
+        "pump_type": "Distribution Export Pump",
+        "flow_rate_m3h": 480.0,
+        "status": "warning_risk",
+    },
+    {
+        "id": "pmp-kpc-1302",
+        "tag_number": "PUMP-PS13-02",
+        "station_code": "PS13",
+        "station_name": "PS13 Kisumu Depot",
+        "pump_type": "Terminal Receiving Pump",
+        "flow_rate_m3h": 450.0,
+        "status": "resolved",
+    },
+]
+
+WATER_DEMO_PUMPS = [
+    {
+        "id": "pmp-wtr-101",
+        "tag_number": "PUMP-WS1-01",
+        "station_code": "WS1",
+        "station_name": "WS1 Sasumua Dam Treatment",
+        "pump_type": "High Lift Raw Water Intake Pump",
+        "flow_rate_m3h": 320.0,
+        "status": "critical_risk",
+    },
+    {
+        "id": "pmp-wtr-102",
+        "tag_number": "PUMP-WS1-02",
+        "station_code": "WS1",
+        "station_name": "WS1 Sasumua Dam Treatment",
+        "pump_type": "High Lift Potable Water Pump",
+        "flow_rate_m3h": 310.0,
+        "status": "normal",
+    },
+    {
+        "id": "pmp-wtr-501",
+        "tag_number": "PUMP-WS5-01",
+        "station_code": "WS5",
+        "station_name": "WS5 Gigiri Main Terminal",
+        "pump_type": "Terminal Feeder Pump",
+        "flow_rate_m3h": 420.0,
+        "status": "normal",
+    },
+    {
+        "id": "pmp-wtr-502",
+        "tag_number": "PUMP-WS5-02",
+        "station_code": "WS5",
+        "station_name": "WS5 Gigiri Main Terminal",
+        "pump_type": "High Pressure Booster Pump",
+        "flow_rate_m3h": 400.0,
+        "status": "warning_risk",
+    },
+]
+
+DEMO_WORK_ORDERS = [
+    {
+        "id": "wo-kpc-001",
+        "wo_number": "WO-2026-0891",
+        "tag_number": "PUMP-PS1-01",
+        "station_code": "PS1",
+        "title": "Emergency Vibration Damping & Bearing Realignment",
+        "severity": "CRITICAL",
+        "status": "assigned",
+        "assigned_to": "KPC Mechanical Team Alpha",
+        "due_date": "2026-09-09",
+        "description": "Overhaul drive-end bearing assembly on PUMP-PS1-01 at PS1 Mombasa to eliminate vibration peak.",
+    },
+    {
+        "id": "wo-kpc-002",
+        "wo_number": "WO-2026-0892",
+        "tag_number": "PUMP-PS6-02",
+        "station_code": "PS6",
+        "title": "Lube Oil Flushing & Thermal Sensor Replacement",
+        "severity": "WARNING",
+        "status": "in_progress",
+        "assigned_to": "KPC Tech Team Bravo",
+        "due_date": "2026-09-11",
+        "description": "Flush lube oil reservoir and replace DE bearing thermocouple on PUMP-PS6-02 at PS6 Nairobi Depot.",
+    },
+    {
+        "id": "wo-kpc-003",
+        "wo_number": "WO-2026-0893",
+        "tag_number": "PUMP-PS11-01",
+        "station_code": "PS11",
+        "title": "Discharge Valve Calibration & Pressure Test",
+        "severity": "WARNING",
+        "status": "open",
+        "assigned_to": "Eldoret Field Operations",
+        "due_date": "2026-09-12",
+        "description": "Inspect and recalibrate discharge control valve on PUMP-PS11-01 at PS11 Eldoret Depot.",
+    },
+]
+
+WATER_DEMO_WORK_ORDERS = [
+    {
+        "id": "wo-wtr-001",
+        "wo_number": "WO-WTR-2026-01",
+        "tag_number": "PUMP-WS1-01",
+        "station_code": "WS1",
+        "title": "Suction Strainer Cleaning & Cavitation Inspection",
+        "severity": "CRITICAL",
+        "status": "assigned",
+        "assigned_to": "NCWSC Hydro Maintenance Unit",
+        "due_date": "2026-09-08",
+        "description": "Clear debris clogging suction strainer on High Lift PUMP-WS1-01 at WS1 Sasumua Dam Treatment.",
+    },
+    {
+        "id": "wo-wtr-002",
+        "wo_number": "WO-WTR-2026-02",
+        "tag_number": "PUMP-WS5-02",
+        "station_code": "WS5",
+        "title": "Turbidity Sensor Recalibration & Filter Backwash",
+        "severity": "WARNING",
+        "status": "in_progress",
+        "assigned_to": "Gigiri Water Quality Team",
+        "due_date": "2026-09-10",
+        "description": "Perform backwash cycle and recalibrate optical sensor on PUMP-WS5-02 at WS5 Gigiri Main Terminal.",
+    },
+]
+
 
 def api_request(method: str, endpoint: str, data: dict = None, token: str = None) -> dict | list | None:
     """Helper to perform authenticated API calls to Flowguard backend."""
@@ -333,6 +495,29 @@ with st.sidebar:
 
     st.divider()
 
+    st.subheader("🎯 Fleet & Asset Filters")
+    temp_stations = NCWSC_WATER_STATIONS if is_water_mode else KPC_STATIONS
+    selected_station_filter = st.selectbox(
+        "Station Location:",
+        options=["All Stations"] + [s["code"] for s in temp_stations],
+        format_func=lambda c: (
+            "All Stations"
+            if c == "All Stations"
+            else next(f"{s['code']} - {s['name']}" for s in temp_stations if s["code"] == c)
+        ),
+    )
+    selected_severity_filter = st.selectbox(
+        "Alert Severity:",
+        options=["All Severities", "CRITICAL", "WARNING", "INFO"],
+    )
+    selected_status_filter = st.selectbox(
+        "Alert Status:",
+        options=["All Statuses", "active", "acknowledged", "resolved"],
+        format_func=lambda s: s.capitalize(),
+    )
+
+    st.divider()
+
     st.subheader("🔐 RBAC & User Role Profile")
     selected_role_key = st.selectbox(
         "Active Role Profile:",
@@ -380,12 +565,100 @@ with st.sidebar:
     st.caption(f"Active API Endpoint: `{API_BASE_URL}`")
 
 
-# Active Dataset Setup based on selected Domain
+# Active Dataset Setup based on selected Domain & Filters
 current_stations = NCWSC_WATER_STATIONS if is_water_mode else KPC_STATIONS
 default_alerts = WATER_DEMO_ALERTS if is_water_mode else DEMO_ALERTS
+default_pumps = WATER_DEMO_PUMPS if is_water_mode else DEMO_PUMPS
+default_work_orders = WATER_DEMO_WORK_ORDERS if is_water_mode else DEMO_WORK_ORDERS
 fluid_name = "Treated Water / Municipal Hydro" if is_water_mode else "Refined Petroleum Products"
 operator_name = "Nairobi City Water & Sewerage Company (NCWSC)" if is_water_mode else "Kenya Pipeline Company (KPC)"
 corridor_title = "NCWSC 185 km Water Transmission System" if is_water_mode else "KPC 1,342 km Petroleum Network (Mombasa to Kisumu)"
+
+token = st.session_state["jwt_token"]
+
+# Raw Data Ingestion
+raw_stations = api_request("GET", "/api/v1/stations", token=token) or current_stations
+raw_pumps = api_request("GET", "/api/v1/pumps", token=token) or default_pumps
+raw_alerts = api_request("GET", "/api/v1/alerts", token=token) or default_alerts
+raw_work_orders = api_request("GET", "/api/v1/work-orders", token=token) or default_work_orders
+
+# Dynamic Global Filtering
+
+# 1. Filter Alerts by Station, Severity, and Status
+alerts_data = list(raw_alerts)
+if selected_station_filter != "All Stations":
+    alerts_data = [
+        a for a in alerts_data
+        if a.get("station_code") == selected_station_filter
+        or selected_station_filter in str(a.get("tag_number", ""))
+        or selected_station_filter in str(a.get("message", ""))
+    ]
+if selected_severity_filter != "All Severities":
+    alerts_data = [
+        a for a in alerts_data
+        if str(a.get("severity", "")).upper() == selected_severity_filter
+    ]
+if selected_status_filter != "All Statuses":
+    alerts_data = [
+        a for a in alerts_data
+        if str(a.get("status", "")).lower() == selected_status_filter.lower()
+    ]
+
+# 2. Filter Stations by Station Selection and Alert Filters
+stations_data = list(raw_stations)
+if selected_station_filter != "All Stations":
+    stations_data = [s for s in stations_data if s.get("code") == selected_station_filter]
+
+if selected_severity_filter != "All Severities" or selected_status_filter != "All Statuses":
+    matching_station_codes = set()
+    for a in alerts_data:
+        st_code = a.get("station_code")
+        if not st_code:
+            for s in current_stations:
+                if s["code"] in str(a.get("tag_number", "")) or s["code"] in str(a.get("message", "")):
+                    st_code = s["code"]
+                    break
+        if st_code:
+            matching_station_codes.add(st_code)
+
+    if matching_station_codes and selected_station_filter == "All Stations":
+        stations_data = [s for s in stations_data if s.get("code") in matching_station_codes]
+
+# 3. Filter Pumps by Station and Active Alerts
+pumps_data = list(raw_pumps)
+if selected_station_filter != "All Stations":
+    pumps_data = [
+        p for p in pumps_data
+        if p.get("station_code") == selected_station_filter
+        or selected_station_filter in str(p.get("tag_number", ""))
+    ]
+if selected_severity_filter != "All Severities" or selected_status_filter != "All Statuses":
+    matching_tags = {a.get("tag_number") for a in alerts_data if a.get("tag_number")}
+    if matching_tags and selected_station_filter == "All Stations":
+        filtered_p = [p for p in pumps_data if p.get("tag_number") in matching_tags]
+        if filtered_p:
+            pumps_data = filtered_p
+
+# 4. Filter Work Orders by Station, Severity, and Status
+work_orders = list(raw_work_orders)
+if selected_station_filter != "All Stations":
+    work_orders = [
+        w for w in work_orders
+        if w.get("station_code") == selected_station_filter
+        or selected_station_filter in str(w.get("tag_number", ""))
+        or selected_station_filter in str(w.get("description", ""))
+        or selected_station_filter in str(w.get("title", ""))
+    ]
+if selected_severity_filter != "All Severities":
+    work_orders = [
+        w for w in work_orders
+        if str(w.get("severity", "")).upper() == selected_severity_filter
+    ]
+if selected_status_filter != "All Statuses":
+    work_orders = [
+        w for w in work_orders
+        if str(w.get("status", "")).lower() == selected_status_filter.lower()
+    ]
 
 # Main Dashboard Header
 active_role_badge = ROLE_PERMISSIONS[st.session_state["user_role"]]["badge"]
@@ -395,15 +668,23 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-token = st.session_state["jwt_token"]
+# Active Filters Notification Banner
+active_filter_tags = []
+if selected_station_filter != "All Stations":
+    active_filter_tags.append(f"Station: **{selected_station_filter}**")
+if selected_severity_filter != "All Severities":
+    active_filter_tags.append(f"Severity: **{selected_severity_filter}**")
+if selected_status_filter != "All Statuses":
+    active_filter_tags.append(f"Status: **{selected_status_filter.capitalize()}**")
 
-# Top Level KPI Row
+if active_filter_tags:
+    st.info(
+        f"🔍 **Active Dashboard Filters Applied**: {' | '.join(active_filter_tags)}. "
+        "Top-level KPIs, maps, alerts log, and diagnostic charts are dynamically filtered."
+    )
+
+# Top Level KPI Row (Dynamically Recalculated)
 col1, col2, col3, col4 = st.columns(4)
-
-stations_data = api_request("GET", "/api/v1/stations", token=token) or current_stations
-pumps_data = api_request("GET", "/api/v1/pumps", token=token) or []
-alerts_data = api_request("GET", "/api/v1/alerts", token=token) or default_alerts
-work_orders = api_request("GET", "/api/v1/work-orders", token=token) or []
 
 with col1:
     st.markdown(
@@ -417,8 +698,9 @@ with col2:
         unsafe_allow_html=True,
     )
 with col3:
+    active_alert_count = sum(1 for a in alerts_data if str(a.get("status", "")).lower() == "active")
     st.markdown(
-        f"<div class='card-kpi'><div class='card-title'>ACTIVE ALERTS</div><div class='card-value'>{len(alerts_data)}</div></div>",
+        f"<div class='card-kpi'><div class='card-title'>ACTIVE ALERTS</div><div class='card-value'>{active_alert_count}</div></div>",
         unsafe_allow_html=True,
     )
 with col4:
@@ -471,146 +753,154 @@ with tab1:
                 station_alert_severity[st_code] = "WARNING"
 
     map_stations = []
-    for s in current_stations:
+    for s in stations_data:
         health = station_alert_severity.get(s["code"], "NORMAL")
         color = "#DC2626" if health == "CRITICAL" else "#D97706" if health == "WARNING" else "#16A34A"
         map_stations.append({**s, "health": health, "color": color})
 
     df_map = pd.DataFrame(map_stations)
 
-    col_m1, col_m2 = st.columns([3, 2])
+    if not df_map.empty:
+        col_m1, col_m2 = st.columns([3, 2])
 
-    with col_m1:
-        st.markdown("##### **2D Geospatial Corridor Map**")
-        fig_map = go.Figure()
+        with col_m1:
+            st.markdown("##### **2D Geospatial Corridor Map**")
+            fig_map = go.Figure()
 
-        fig_map.add_trace(go.Scattergeo(
-            lat=df_map["lat"],
-            lon=df_map["lon"],
-            mode="lines",
-            line=dict(width=3, color="#1E3A8A"),
-            name="Pipeline Main Route",
-            hoverinfo="none",
-        ))
-
-        for health_status, color, label in [
-            ("CRITICAL", "#DC2626", "Critical Alarm"),
-            ("WARNING", "#D97706", "Warning Active"),
-            ("NORMAL", "#16A34A", "Normal Operational"),
-        ]:
-            sub_df = df_map[df_map["health"] == health_status]
-            if not sub_df.empty:
+            if len(df_map) > 1:
                 fig_map.add_trace(go.Scattergeo(
-                    lat=sub_df["lat"],
-                    lon=sub_df["lon"],
-                    mode="markers+text",
-                    marker=dict(size=13, color=color, symbol="circle", line=dict(width=1.5, color="#FFFFFF")),
-                    text=sub_df["code"],
-                    textposition="top center",
-                    name=f"Health: {label}",
-                    hovertext=[
-                        f"<b>{row['name']} ({row['code']})</b><br>"
-                        f"Region: {row['region']}<br>"
-                        f"Capacity: {row['capacity']:,} m³/day<br>"
-                        f"Elevation: {row['elevation']} m<br>"
-                        f"Health: <b>{row['health']}</b>"
-                        for _, row in sub_df.iterrows()
-                    ],
-                    hoverinfo="text",
+                    lat=df_map["lat"],
+                    lon=df_map["lon"],
+                    mode="lines",
+                    line=dict(width=3, color="#1E3A8A"),
+                    name="Pipeline Main Route",
+                    hoverinfo="none",
                 ))
 
-        fig_map.update_layout(
-            geo=dict(
-                scope="africa",
-                center=dict(lat=-1.25, lon=36.8),
-                projection_scale=6.5,
-                showland=True,
-                landcolor="#F8FAFC",
-                showcountries=True,
-                countrycolor="#CBD5E1",
-                showlakes=True,
-                lakecolor="#E0F2FE",
+            for health_status, color, label in [
+                ("CRITICAL", "#DC2626", "Critical Alarm"),
+                ("WARNING", "#D97706", "Warning Active"),
+                ("NORMAL", "#16A34A", "Normal Operational"),
+            ]:
+                sub_df = df_map[df_map["health"] == health_status]
+                if not sub_df.empty:
+                    fig_map.add_trace(go.Scattergeo(
+                        lat=sub_df["lat"],
+                        lon=sub_df["lon"],
+                        mode="markers+text",
+                        marker=dict(size=13, color=color, symbol="circle", line=dict(width=1.5, color="#FFFFFF")),
+                        text=sub_df["code"],
+                        textposition="top center",
+                        name=f"Health: {label}",
+                        hovertext=[
+                            f"<b>{row['name']} ({row['code']})</b><br>"
+                            f"Region: {row['region']}<br>"
+                            f"Capacity: {row['capacity']:,} m³/day<br>"
+                            f"Elevation: {row['elevation']} m<br>"
+                            f"Health: <b>{row['health']}</b>"
+                            for _, row in sub_df.iterrows()
+                        ],
+                        hoverinfo="text",
+                    ))
+
+            center_lat = float(df_map["lat"].mean())
+            center_lon = float(df_map["lon"].mean())
+            proj_scale = 14.0 if len(df_map) == 1 else 6.5
+
+            fig_map.update_layout(
+                geo=dict(
+                    scope="africa",
+                    center=dict(lat=center_lat, lon=center_lon),
+                    projection_scale=proj_scale,
+                    showland=True,
+                    landcolor="#F8FAFC",
+                    showcountries=True,
+                    countrycolor="#CBD5E1",
+                    showlakes=True,
+                    lakecolor="#E0F2FE",
+                ),
+                height=420,
+                margin={"r": 0, "t": 20, "l": 0, "b": 0},
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+            )
+            st.plotly_chart(fig_map, use_container_width=True)
+
+        with col_m2:
+            st.markdown("##### **3D Pipeline Elevation Profile**")
+            fig_3d_elev = go.Figure()
+
+            # 3D Line path for pipeline elevation
+            fig_3d_elev.add_trace(go.Scatter3d(
+                x=df_map["lon"],
+                y=df_map["lat"],
+                z=df_map["elevation"],
+                mode="lines+markers" if len(df_map) > 1 else "markers",
+                line=dict(color="#2563EB", width=6),
+                marker=dict(
+                    size=9,
+                    color=df_map["color"],
+                    symbol="circle",
+                ),
+                hovertext=[
+                    f"{r['code']} ({r['name']})<br>Elev: {r['elevation']} m"
+                    for _, r in df_map.iterrows()
+                ],
+                hoverinfo="text",
+                name="Elevation Corridor",
+            ))
+
+            fig_3d_elev.update_layout(
+                scene=dict(
+                    xaxis_title="Longitude",
+                    yaxis_title="Latitude",
+                    zaxis_title="Elevation (m)",
+                    camera=dict(eye=dict(x=1.6, y=1.6, z=0.8)),
+                ),
+                height=420,
+                margin={"r": 0, "t": 20, "l": 0, "b": 0},
+            )
+            st.plotly_chart(fig_3d_elev, use_container_width=True)
+
+        st.markdown("---")
+        st.markdown("##### 🔎 **Station Inspector**")
+        sel_st_code = st.selectbox(
+            "Select Station to Inspect",
+            options=[s["code"] for s in stations_data],
+            format_func=lambda c: next(
+                f"{s['code']} - {s['name']} ({s['region']})" for s in stations_data if s["code"] == c
             ),
-            height=420,
-            margin={"r": 0, "t": 20, "l": 0, "b": 0},
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         )
-        st.plotly_chart(fig_map, use_container_width=True)
+        st_info = next(s for s in map_stations if s["code"] == sel_st_code)
 
-    with col_m2:
-        st.markdown("##### **3D Pipeline Elevation Profile**")
-        fig_3d_elev = go.Figure()
+        st_col1, st_col2, st_col3, st_col4 = st.columns(4)
+        with st_col1:
+            st.metric("Station Name", st_info["name"])
+        with st_col2:
+            st.metric("Region & Elevation", f"{st_info['region']} ({st_info['elevation']}m)")
+        with st_col3:
+            st.metric("Throughput Capacity", f"{st_info['capacity']:,} m³/day")
+        with st_col4:
+            health_badge = (
+                "🔴 CRITICAL" if st_info["health"] == "CRITICAL"
+                else "🟡 WARNING" if st_info["health"] == "WARNING"
+                else "🟢 NORMAL"
+            )
+            st.metric("Operational Health", health_badge)
 
-        # 3D Line path for pipeline elevation
-        fig_3d_elev.add_trace(go.Scatter3d(
-            x=df_map["lon"],
-            y=df_map["lat"],
-            z=df_map["elevation"],
-            mode="lines+markers",
-            line=dict(color="#2563EB", width=6),
-            marker=dict(
-                size=7,
-                color=df_map["color"],
-                symbol="circle",
-            ),
-            hovertext=[
-                f"{r['code']} ({r['name']})<br>Elev: {r['elevation']} m"
-                for _, r in df_map.iterrows()
-            ],
-            hoverinfo="text",
-            name="Elevation Corridor",
-        ))
-
-        fig_3d_elev.update_layout(
-            scene=dict(
-                xaxis_title="Longitude",
-                yaxis_title="Latitude",
-                zaxis_title="Elevation (m)",
-                camera=dict(eye=dict(x=1.6, y=1.6, z=0.8)),
-            ),
-            height=420,
-            margin={"r": 0, "t": 20, "l": 0, "b": 0},
-        )
-        st.plotly_chart(fig_3d_elev, use_container_width=True)
-
-    st.markdown("---")
-    st.markdown("##### 🔎 **Station Inspector**")
-    sel_st_code = st.selectbox(
-        "Select Station to Inspect",
-        options=[s["code"] for s in current_stations],
-        format_func=lambda c: next(
-            f"{s['code']} - {s['name']} ({s['region']})" for s in current_stations if s["code"] == c
-        ),
-    )
-    st_info = next(s for s in map_stations if s["code"] == sel_st_code)
-
-    st_col1, st_col2, st_col3, st_col4 = st.columns(4)
-    with st_col1:
-        st.metric("Station Name", st_info["name"])
-    with st_col2:
-        st.metric("Region & Elevation", f"{st_info['region']} ({st_info['elevation']}m)")
-    with st_col3:
-        st.metric("Throughput Capacity", f"{st_info['capacity']:,} m³/day")
-    with st_col4:
-        health_badge = (
-            "🔴 CRITICAL" if st_info["health"] == "CRITICAL"
-            else "🟡 WARNING" if st_info["health"] == "WARNING"
-            else "🟢 NORMAL"
-        )
-        st.metric("Operational Health", health_badge)
-
-    st_alerts = [
-        a for a in alerts_data
-        if a.get("station_code") == sel_st_code
-        or st_info["code"] in str(a.get("tag_number", ""))
-        or st_info["code"] in str(a.get("message", ""))
-    ]
-    if st_alerts:
-        st.warning(f"⚠️ {len(st_alerts)} alert(s) associated with {st_info['name']}:")
-        for sa in st_alerts:
-            st.caption(f"• [{sa.get('severity')}] {sa.get('message')}")
+        st_alerts = [
+            a for a in alerts_data
+            if a.get("station_code") == sel_st_code
+            or st_info["code"] in str(a.get("tag_number", ""))
+            or st_info["code"] in str(a.get("message", ""))
+        ]
+        if st_alerts:
+            st.warning(f"⚠️ {len(st_alerts)} alert(s) associated with {st_info['name']}:")
+            for sa in st_alerts:
+                st.caption(f"• [{sa.get('severity')}] {sa.get('message')}")
+        else:
+            st.success(f"✅ All pumps at {st_info['name']} are operating within normal thresholds.")
     else:
-        st.success(f"✅ All pumps at {st_info['name']} are operating within normal thresholds.")
+        st.info("No stations match the selected filter criteria.")
 
 # Tab 2: Telemetry & HDI Engine
 with tab2:
@@ -618,11 +908,14 @@ with tab2:
 
     selected_pump_id = None
     if pumps_data:
-        pump_options = {f"{p.get('tag_number', 'PUMP')}-{p.get('id', '')[:6]}": p["id"] for p in pumps_data}
+        pump_options = {
+            f"{p.get('tag_number', 'PUMP')} ({p.get('station_name', p.get('station_code', ''))})": p.get("id", p.get("tag_number"))
+            for p in pumps_data
+        }
         selected_label = st.selectbox("Select Pump Asset", list(pump_options.keys()))
         selected_pump_id = pump_options[selected_label]
     else:
-        st.info("No live API connection. Rendering baseline telemetry and physics calculations.")
+        st.info("No pump assets match the selected filter criteria. Displaying fleet baseline telemetry.")
 
     col_t1, col_t2 = st.columns([2, 1])
 
@@ -763,18 +1056,13 @@ with tab4:
     st.divider()
 
     st.markdown("##### **Live Fleet Risk Notifications & Alert Log**")
-    status_sel = st.radio("Filter Alerts by Status:", ["All", "Active", "Acknowledged", "Resolved"], horizontal=True)
-    filt_alerts = alerts_data
-    if status_sel != "All":
-        filt_alerts = [a for a in alerts_data if str(a.get("status", "")).lower() == status_sel.lower()]
-
-    if filt_alerts:
-        st.dataframe(pd.DataFrame(filt_alerts), use_container_width=True)
+    if alerts_data:
+        st.dataframe(pd.DataFrame(alerts_data), use_container_width=True)
 
         st.markdown("##### **Interactive Alert Management (RBAC Enforced)**")
         alert_map = {
-            f"Alert {str(a.get('id', ''))[:8]} - {a.get('rule_type', 'THRESHOLD')} ({a.get('status', 'active')})": a["id"]
-            for a in filt_alerts if "id" in a
+            f"Alert {str(a.get('id', ''))[:8]} - {a.get('tag_number', 'PUMP')} [{a.get('severity', 'INFO')}] ({a.get('status', 'active')})": a["id"]
+            for a in alerts_data if "id" in a
         }
         if alert_map:
             sel_alert_lbl = st.selectbox("Select Alert to Manage", list(alert_map.keys()))
@@ -811,7 +1099,7 @@ with tab4:
                     else:
                         st.info("Demo Mode: Alert resolved in UI state.")
     else:
-        st.info("No active or historical alerts found matching the selected status filter.")
+        st.info("No active or historical alerts found matching the selected filter criteria.")
 
 # Tab 5: 3D Digital Twin & SHAP XAI
 with tab5:
@@ -970,9 +1258,8 @@ with tab7:
         else:
             st.info("Demo Mode: Fleet schedule re-ranked by RUL urgency.")
 
-    st.markdown("##### **Active Scheduled Maintenance Calendar**")
-    schedules = api_request("GET", "/api/v1/maintenance-schedule", token=token) or []
-    if schedules:
-        st.dataframe(pd.DataFrame(schedules), use_container_width=True)
+    st.markdown("##### **Active Scheduled Maintenance Calendar & Work Orders**")
+    if work_orders:
+        st.dataframe(pd.DataFrame(work_orders), use_container_width=True)
     else:
-        st.caption("No scheduled maintenance items currently active.")
+        st.info("No scheduled work orders match the selected filter criteria.")
