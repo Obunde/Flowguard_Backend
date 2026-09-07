@@ -24,6 +24,30 @@ st.set_page_config(
 
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000").rstrip("/")
 
+# Role-Based Access Control (RBAC) Definition
+ROLE_PERMISSIONS = {
+    "admin": {
+        "title": "Tenant Administrator",
+        "badge": "👑 ADMIN",
+        "allowed_actions": {"read", "evaluate_alerts", "manage_alerts", "rank_schedule", "create_work_orders"},
+    },
+    "planner": {
+        "title": "Maintenance Planner",
+        "badge": "🗓️ PLANNER",
+        "allowed_actions": {"read", "rank_schedule", "create_work_orders"},
+    },
+    "technician": {
+        "title": "Field Technician",
+        "badge": "🔧 TECHNICIAN",
+        "allowed_actions": {"read", "manage_alerts", "update_work_orders"},
+    },
+    "viewer": {
+        "title": "Operations Viewer",
+        "badge": "👁️ VIEWER",
+        "allowed_actions": {"read"},
+    },
+}
+
 # KPC Petroleum 13 Station Reference Data (with Elevation in meters)
 KPC_STATIONS = [
     {"code": "PS1", "name": "PS1 Mombasa", "lat": -4.0225, "lon": 39.6086, "elevation": 10, "region": "Coast", "capacity": 3200},
@@ -249,11 +273,21 @@ def api_request(method: str, endpoint: str, data: dict = None, token: str = None
         return None
 
 
-# Session State Management
+# Session State Management for JWT & RBAC
 if "jwt_token" not in st.session_state:
     st.session_state["jwt_token"] = None
 if "user_email" not in st.session_state:
     st.session_state["user_email"] = None
+if "user_role" not in st.session_state:
+    st.session_state["user_role"] = "admin"
+
+
+def check_rbac_permission(action: str) -> bool:
+    """Helper function to check if the current active role is authorized."""
+    role = st.session_state.get("user_role", "admin").lower()
+    role_cfg = ROLE_PERMISSIONS.get(role, ROLE_PERMISSIONS["viewer"])
+    return action in role_cfg["allowed_actions"]
+
 
 # Custom CSS Styling
 st.markdown("""
@@ -263,12 +297,12 @@ st.markdown("""
     .card-kpi { background-color: #F8FAFC; border: 1px solid #E2E8F0; padding: 1rem; border-radius: 8px; text-align: center; }
     .card-title { font-size: 0.9rem; color: #64748B; font-weight: 600; }
     .card-value { font-size: 1.8rem; font-weight: 700; color: #0F172A; }
-    .domain-badge { display: inline-block; padding: 0.3rem 0.8rem; border-radius: 20px; font-weight: 600; font-size: 0.85rem; }
+    .rbac-badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 12px; font-weight: 700; font-size: 0.8rem; }
 </style>
 """, unsafe_allow_html=True)
 
 
-# Sidebar & Infrastructure Domain Selection
+# Sidebar Setup: Domain, Authentication & RBAC Control
 with st.sidebar:
     st.image("https://raw.githubusercontent.com/feathericons/feather/master/icons/shield.svg", width=64)
     st.markdown("### **Flowguard Control Center**")
@@ -285,6 +319,20 @@ with st.sidebar:
 
     st.divider()
 
+    st.subheader("🔐 RBAC & User Role Profile")
+    selected_role_key = st.selectbox(
+        "Active Role Profile:",
+        options=list(ROLE_PERMISSIONS.keys()),
+        format_func=lambda r: f"{ROLE_PERMISSIONS[r]['badge']} - {ROLE_PERMISSIONS[r]['title']}",
+        index=list(ROLE_PERMISSIONS.keys()).index(st.session_state["user_role"]),
+    )
+    st.session_state["user_role"] = selected_role_key
+
+    role_info = ROLE_PERMISSIONS[st.session_state["user_role"]]
+    st.caption(f"Role Privileges: `{', '.join(role_info['allowed_actions'])}`")
+
+    st.divider()
+
     if not st.session_state["jwt_token"]:
         st.subheader("🔑 Authentication")
         email_input = st.text_input("Email", value="admin@kpc.co.ke" if not is_water_mode else "admin@ncwsc.co.ke")
@@ -294,6 +342,8 @@ with st.sidebar:
             if res and "access_token" in res:
                 st.session_state["jwt_token"] = res["access_token"]
                 st.session_state["user_email"] = email_input
+                if "user" in res and "role" in res["user"]:
+                    st.session_state["user_role"] = res["user"]["role"].lower()
                 st.success("Authenticated successfully!")
                 st.rerun()
             else:
@@ -317,9 +367,10 @@ operator_name = "Nairobi City Water & Sewerage Company (NCWSC)" if is_water_mode
 corridor_title = "NCWSC 185 km Water Transmission System" if is_water_mode else "KPC 1,342 km Petroleum Network (Mombasa to Kisumu)"
 
 # Main Dashboard Header
+active_role_badge = ROLE_PERMISSIONS[st.session_state["user_role"]]["badge"]
 st.markdown("<div class='main-header'>🛡️ Flowguard Multi-Fluid Maintenance Platform</div>", unsafe_allow_html=True)
 st.markdown(
-    f"<div class='sub-header'><b>{operator_name}</b> — Infrastructure Fluid: <i>{fluid_name}</i></div>",
+    f"<div class='sub-header'><b>{operator_name}</b> — Fluid: <i>{fluid_name}</i> | Active Role: <b>{active_role_badge}</b></div>",
     unsafe_allow_html=True,
 )
 
@@ -661,11 +712,18 @@ with tab4:
         )
     with col_a2:
         if st.button("⚡ Evaluate Thresholds", type="primary", use_container_width=True):
-            if token and selected_pump_id:
+            if not check_rbac_permission("evaluate_alerts"):
+                st.error(
+                    f"🔒 **RBAC Permission Denied**: Role `{st.session_state['user_role'].upper()}` "
+                    "cannot trigger threshold evaluations. Required: ADMIN."
+                )
+            elif token and selected_pump_id:
                 eval_res = api_request("POST", f"/api/v1/alerts/pumps/{selected_pump_id}/evaluate", token=token)
                 if eval_res is not None:
                     st.success("Threshold rules evaluated successfully!")
                     st.rerun()
+            else:
+                st.success("Demo Mode: Rule evaluation executed successfully!")
 
     crit_cnt = sum(1 for a in alerts_data if str(a.get("severity", "")).upper() == "CRITICAL")
     warn_cnt = sum(1 for a in alerts_data if str(a.get("severity", "")).upper() == "WARNING")
@@ -692,7 +750,7 @@ with tab4:
     if filt_alerts:
         st.dataframe(pd.DataFrame(filt_alerts), use_container_width=True)
 
-        st.markdown("##### **Interactive Alert Management**")
+        st.markdown("##### **Interactive Alert Management (RBAC Enforced)**")
         alert_map = {
             f"Alert {str(a.get('id', ''))[:8]} - {a.get('rule_type', 'THRESHOLD')} ({a.get('status', 'active')})": a["id"]
             for a in filt_alerts if "id" in a
@@ -703,7 +761,12 @@ with tab4:
             ca1, ca2 = st.columns(2)
             with ca1:
                 if st.button("Acknowledge Alert", use_container_width=True):
-                    if token:
+                    if not check_rbac_permission("manage_alerts"):
+                        st.error(
+                            f"🔒 **RBAC Permission Denied**: Role `{st.session_state['user_role'].upper()}` "
+                            "is not authorized to acknowledge alerts. Required: ADMIN or TECHNICIAN."
+                        )
+                    elif token:
                         api_request(
                             "PATCH", f"/api/v1/alerts/{sel_alert_id}", data={"status": "acknowledged"}, token=token
                         )
@@ -713,7 +776,12 @@ with tab4:
                         st.info("Demo Mode: Alert acknowledged in UI state.")
             with ca2:
                 if st.button("Resolve Alert", use_container_width=True):
-                    if token:
+                    if not check_rbac_permission("manage_alerts"):
+                        st.error(
+                            f"🔒 **RBAC Permission Denied**: Role `{st.session_state['user_role'].upper()}` "
+                            "is not authorized to resolve alerts. Required: ADMIN or TECHNICIAN."
+                        )
+                    elif token:
                         api_request(
                             "PATCH", f"/api/v1/alerts/{sel_alert_id}", data={"status": "resolved"}, token=token
                         )
@@ -726,7 +794,7 @@ with tab4:
 
 # Tab 5: 3D Digital Twin & SHAP XAI
 with tab5:
-    st.subheader("🔍 3D Digital Twin & SHAP Sub-Assembly Explainability")
+    st.subheader("🔍 3D Digital Twin & SHAP Sub-Assembly Diagnostics")
 
     col_3d1, col_3d2 = st.columns([3, 2])
 
@@ -743,56 +811,67 @@ with tab5:
             shap_data = {k.capitalize(): v * 100 for k, v in scores.items()}
 
     with col_3d1:
-        st.markdown("##### **3D Centrifugal Pump Digital Twin Assembly**")
-        
-        # Build 3D sub-components of a multistage centrifugal pump
+        st.markdown("##### **High-Resolution 3D Centrifugal Pump Assembly Model**")
+
         fig_pump_3d = go.Figure()
 
-        # 1. Motor Casing Block (X: -4 to -1)
-        fig_pump_3d.add_trace(go.Scatter3d(
-            x=[-4, -1, -1, -4, -4, -4, -1, -1, -4, -4],
-            y=[-1, -1, 1, 1, -1, -1, -1, 1, 1, -1],
-            z=[-1, -1, -1, -1, -1, 1, 1, 1, 1, 1],
-            mode="lines",
-            line=dict(color="#3B82F6", width=4),
+        # 1. Motor Casing Cylindrical Mesh (X: -4 to -1)
+        z_cylinder = np.linspace(-1, 1, 15)
+        theta_cyl = np.linspace(0, 2 * np.pi, 20)
+        z_grid, theta_grid = np.meshgrid(z_cylinder, theta_cyl)
+        y_motor = 1.1 * np.cos(theta_grid)
+        x_motor = np.full_like(y_motor, -2.5) + z_grid * 1.5
+        z_motor = 1.1 * np.sin(theta_grid)
+
+        fig_pump_3d.add_trace(go.Surface(
+            x=x_motor,
+            y=y_motor,
+            z=z_motor,
+            colorscale="Blues",
+            showscale=False,
+            opacity=0.85,
             name="1. Electric Motor Casing",
         ))
 
-        # 2. Drive Shaft Line (X: -4 to 5)
+        # 2. Heavy Drive Shaft Line (X: -4 to 5)
         fig_pump_3d.add_trace(go.Scatter3d(
             x=[-4, 5],
             y=[0, 0],
             z=[0, 0],
             mode="lines+markers",
-            line=dict(color="#000000", width=8),
-            marker=dict(size=4, color="#1E293B"),
-            name="2. Drive Shaft Line",
+            line=dict(color="#0F172A", width=9),
+            marker=dict(size=5, color="#334155"),
+            name="2. Heavy Drive Shaft Line",
         ))
 
-        # 3. Bearing Housing DE & NDE (X: -0.5, X: 4.5)
-        bearing_color = "#DC2626" if shap_data.get("Bearing Assembly", 0) > 35 else "#10B981"
+        # 3. Drive-End (DE) and Non-Drive-End (NDE) Bearing Housings (X: -0.5, X: 4.5)
+        bearing_score = shap_data.get("Bearing Assembly", 0) or shap_data.get("Bearing Housing", 0)
+        bearing_color = "#DC2626" if bearing_score > 35 else "#10B981"
         fig_pump_3d.add_trace(go.Scatter3d(
             x=[-0.5, 4.5],
             y=[0, 0],
             z=[0, 0],
-            mode="markers",
+            mode="markers+text",
             marker=dict(size=18, color=bearing_color, symbol="diamond"),
+            text=["DE Bearing", "NDE Bearing"],
+            textposition="top center",
             name="3. Bearing Housings (DE & NDE)",
         ))
 
-        # 4. Impeller Stages Disks (X: 1.0, 2.0, 3.0)
-        impeller_color = "#DC2626" if shap_data.get("Impeller Stage", 0) > 35 or shap_data.get("Suction Impeller", 0) > 35 else "#F59E0B"
-        theta = np.linspace(0, 2 * np.pi, 20)
+        # 4. Multi-Stage Impeller Disks & Volute Housing (X: 1.2, 2.4, 3.6)
+        impeller_score = shap_data.get("Impeller Stage", 0) or shap_data.get("Suction Impeller", 0)
+        impeller_color = "#DC2626" if impeller_score > 35 else "#F59E0B"
+        theta = np.linspace(0, 2 * np.pi, 30)
         for x_pos in [1.2, 2.4, 3.6]:
-            y_ring = 1.2 * np.cos(theta)
-            z_ring = 1.2 * np.sin(theta)
+            y_ring = 1.3 * np.cos(theta)
+            z_ring = 1.3 * np.sin(theta)
             x_ring = np.full_like(theta, x_pos)
             fig_pump_3d.add_trace(go.Scatter3d(
                 x=x_ring,
                 y=y_ring,
                 z=z_ring,
                 mode="lines",
-                line=dict(color=impeller_color, width=5),
+                line=dict(color=impeller_color, width=6),
                 name=f"4. Impeller Stage (X={x_pos}m)",
                 showlegend=False,
             ))
@@ -804,7 +883,7 @@ with tab5:
                 zaxis_title="Z (m)",
                 camera=dict(eye=dict(x=1.8, y=1.8, z=0.8)),
             ),
-            height=380,
+            height=400,
             margin={"r": 0, "t": 20, "l": 0, "b": 0},
         )
         st.plotly_chart(fig_pump_3d, use_container_width=True)
@@ -821,19 +900,13 @@ with tab5:
             y="Risk Share (%)",
             color="Risk Share (%)",
             color_continuous_scale="Reds",
-            title="Sub-Component Contribution Breakdown",
+            title="Sub-Component Anomaly Share",
         )
         fig_shap.update_layout(height=360, margin={"r": 10, "t": 30, "l": 10, "b": 10})
         st.plotly_chart(fig_shap, use_container_width=True)
 
 # Tab 6: Water Scenario Replicator
 with tab6:
-    st.subheader("💧 Multi-Fluid Scenario Replicator: Petroleum vs. Municipal Water")
-    st.markdown(
-        "Demonstrates Flowguard's modular adaptability across multi-product petroleum (KPC) "
-        "and municipal water supply networks (e.g., NCWSC)."
-    )
-
     sc1, sc2 = st.columns(2)
 
     with sc1:
