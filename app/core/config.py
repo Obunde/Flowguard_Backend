@@ -28,14 +28,14 @@ class Settings(BaseSettings):
     # app/core/db.py builds the single engine/session factory from this value.
     # migrations/env.py imports `settings` and reuses it too — never a second
     # hardcoded connection string.
-    database_url: str
+    database_url: str = "sqlite:///./flowgard.db"
 
     # Used only by tests/conftest.py, kept separate from database_url so the
     # test suite never touches real data.
     test_database_url: str | None = None
 
     # JWT auth (app/core/auth.py)
-    jwt_secret_key: str
+    jwt_secret_key: str = "flowguard-default-production-secret-key-change-me-in-env-32bytes"
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 60
     # Short-lived token handed out at login when a user still has a
@@ -74,6 +74,13 @@ class Settings(BaseSettings):
     def _split_csv(cls, value: str | list[str]) -> list[str]:
         if isinstance(value, str):
             return [origin.strip() for origin in value.split(",") if origin.strip()]
+        return value
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def _fix_postgres_url_scheme(cls, value: str) -> str:
+        if isinstance(value, str) and value.startswith("postgres://"):
+            return value.replace("postgres://", "postgresql://", 1)
         return value
 
 
