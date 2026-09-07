@@ -95,3 +95,18 @@ def test_alert_routes_crud(client, headers_a, station_a, db_session):
     # 404 test
     res = client.get("/api/v1/alerts/00000000-0000-0000-0000-000000000000", headers=headers_a)
     assert res.status_code == 404
+
+
+def test_evaluate_thresholds(client, headers_a, station_a, db_session):
+    pump = Pump(
+        tenant_id=station_a.tenant_id,
+        station_id=station_a.id,
+        tag_number="PS1-P03",
+        status=PumpStatus.OPERATIONAL,
+    )
+    db_session.add(pump)
+    db_session.commit()
+
+    res = client.post(f"/api/v1/alerts/pumps/{pump.id}/evaluate", headers=headers_a)
+    assert res.status_code == 200
+    assert isinstance(res.json(), list)
