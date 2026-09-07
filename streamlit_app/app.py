@@ -161,22 +161,41 @@ with tab1:
     st.subheader("Kenya Pipeline Network Corridor (Mombasa to Kisumu)")
     df_map = pd.DataFrame(KPC_STATIONS)
     
-    fig_map = px.scatter_mapbox(
-        df_map,
-        lat="lat",
-        lon="lon",
-        hover_name="name",
-        hover_data=["code", "region", "capacity"],
-        color="region",
-        size="capacity",
-        zoom=5.8,
-        center={"lat": -1.25, "lon": 36.8},
-        height=450,
-        mapbox_style="open-street-map",
-        title="KPC 13 Pump Stations Location Map",
-    )
-    fig_map.update_layout(margin={"r":0,"t":40,"l":0,"b":0})
-    st.plotly_chart(fig_map, use_container_width=True)
+    if hasattr(px, "scatter_map"):
+        fig_map = px.scatter_map(
+            df_map,
+            lat="lat",
+            lon="lon",
+            hover_name="name",
+            hover_data=["code", "region", "capacity"],
+            color="region",
+            size="capacity",
+            zoom=5.8,
+            center={"lat": -1.25, "lon": 36.8},
+            height=450,
+            title="KPC 13 Pump Stations Location Map",
+        )
+        fig_map.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0})
+        st.plotly_chart(fig_map, use_container_width=True)
+    elif hasattr(px, "scatter_mapbox"):
+        fig_map = px.scatter_mapbox(
+            df_map,
+            lat="lat",
+            lon="lon",
+            hover_name="name",
+            hover_data=["code", "region", "capacity"],
+            color="region",
+            size="capacity",
+            zoom=5.8,
+            center={"lat": -1.25, "lon": 36.8},
+            height=450,
+            mapbox_style="open-street-map",
+            title="KPC 13 Pump Stations Location Map",
+        )
+        fig_map.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0})
+        st.plotly_chart(fig_map, use_container_width=True)
+    else:
+        st.map(df_map, latitude="lat", longitude="lon")
 
 # Tab 2: Telemetry & HDI Engine
 with tab2:
