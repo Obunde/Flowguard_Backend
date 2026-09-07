@@ -1,11 +1,13 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer
+from sqlalchemy import JSON, DateTime, Float, ForeignKey, Integer
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.base import Base, TenantScopedMixin, TimestampMixin, UUIDPrimaryKeyMixin
+
+JSON_TYPE = JSONB().with_variant(JSON, "sqlite")
 
 
 class BronzePumpTelemetry(Base, TenantScopedMixin, UUIDPrimaryKeyMixin, TimestampMixin):
@@ -29,11 +31,11 @@ class BronzeWeatherAPI(Base, TenantScopedMixin, UUIDPrimaryKeyMixin, TimestampMi
     __table_args__ = {'schema': 'bronze'}
     timestamp: Mapped[datetime] = mapped_column(DateTime, index=True)
     station_id: Mapped[UUID] = mapped_column(ForeignKey("master.station.id"), index=True)
-    raw_payload: Mapped[dict] = mapped_column(JSONB)
+    raw_payload: Mapped[dict] = mapped_column(JSON_TYPE)
 
 class BronzeRegionalRisk(Base, TenantScopedMixin, UUIDPrimaryKeyMixin, TimestampMixin):
     __tablename__ = "regional_risk"
     __table_args__ = {'schema': 'bronze'}
     timestamp: Mapped[datetime] = mapped_column(DateTime, index=True)
     station_id: Mapped[UUID] = mapped_column(ForeignKey("master.station.id"), index=True)
-    raw_payload: Mapped[dict] = mapped_column(JSONB)
+    raw_payload: Mapped[dict] = mapped_column(JSON_TYPE)
