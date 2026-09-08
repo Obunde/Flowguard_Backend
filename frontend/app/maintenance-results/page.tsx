@@ -1,0 +1,18 @@
+"use client";
+import { useEffect, useState } from "react";
+import { Card } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { Icon } from "@/components/ui/Icon";
+import { api, download } from "@/lib/resources";
+
+type Result = { reference: string; pump_code: string; station_code: string; station_name: string; title: string; closed_at: string | null; outcome: string | null; post_maintenance_condition: string | null; verification_result: string | null; downtime_minutes: number | null };
+type Report = { items: Result[]; metrics: { completed?: number; verified?: number; follow_up?: number; recorded_downtime_minutes?: number }; metadata: { data_mode: string; limitations: string } };
+
+export default function MaintenanceResultsPage() {
+  const [report, setReport] = useState<Report | null>(null); const [error, setError] = useState<string | null>(null);
+  async function load() { try { setReport(await api<Report>("/maintenance-results")); setError(null); } catch (e) { setError((e as Error).message); } }
+  useEffect(() => { void load(); }, []);
+  async function exportCsv() { try { await download("/maintenance-results/export.csv", "flowgard-maintenance-results.csv"); } catch (e) { setError((e as Error).message); } }
+  return <div className="animate-fade-in-up"><header className="mb-6 flex items-start justify-between gap-4"><div><h1>Maintenance outcomes</h1><p className="mt-1 text-sm text-muted-foreground">Evidence-based reporting on completed maintenance and asset recovery.</p></div><Button onClick={exportCsv}><Icon name="download" className="mr-2 h-4 w-4" />Export report</Button></header>{error && <p className="mb-4 text-sm text-red">Unable to load outcomes: {error}</p>}{report && <><div className="mb-4 grid gap-4 md:grid-cols-4">{[["Completed",report.metrics?.completed], ["Verified",report.metrics?.verified], ["Follow-up",report.metrics?.follow_up], ["Downtime (min)",report.metrics?.recorded_downtime_minutes]].map(([label,value]) => <Card key={label as string}><p className="text-xs text-muted-foreground">{label}</p><p className="mt-1 text-2xl font-extrabold">{value ?? 0}</p></Card>)}</div><Card padded={false}><div className="overflow-x-auto p-5"><table className="w-full min-w-[900px]"><thead><tr>{["Reference","Asset","Station","Outcome","Condition","Verification","Downtime","Closed"].map(h => <th key={h} className="border-b border-border px-2 py-2 text-left text-xs uppercase tracking-wide text-muted-foreground">{h}</th>)}</tr></thead><tbody>{report.items.map(row => <tr key={row.reference} className="border-b border-border/60"><td className="px-2 py-3 font-mono text-xs">{row.reference}</td><td className="px-2 py-3 font-semibold">{row.pump_code}</td><td className="px-2 py-3">{row.station_code} — {row.station_name}</td><td className="px-2 py-3">{row.outcome ?? "Unlabelled"}</td><td className="px-2 py-3">{row.post_maintenance_condition ?? "—"}</td><td className="px-2 py-3"><Badge tone={row.verification_result === "passed" ? "healthy" : row.verification_result === "failed" ? "critical" : "watch"}>{row.verification_result ?? "Pending"}</Badge></td><td className="px-2 py-3">{row.downtime_minutes ?? "—"}</td><td className="px-2 py-3">{row.closed_at ? new Date(row.closed_at).toLocaleDateString() : "—"}</td></tr>)}</tbody></table>{report.items.length === 0 && <p className="py-10 text-center text-sm text-muted-foreground">No completed maintenance outcomes in this period.</p>}</div></Card><p className="mt-3 text-xs text-muted-foreground">Data mode: {report.metadata.data_mode}. {report.metadata.limitations}</p></>}</div>;
+}
