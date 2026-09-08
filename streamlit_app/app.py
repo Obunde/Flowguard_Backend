@@ -26,6 +26,17 @@ warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 warnings.filterwarnings("ignore", message=".*use_container_width.*")
 
+
+def create_scatter_map_trace(**kwargs):
+    """Safe factory for Scattermap / Scattermapbox across Plotly versions."""
+    if hasattr(go, "Scattermap"):
+        return go.Scattermap(**kwargs)
+    elif hasattr(go, "Scattermapbox"):
+        return go.Scattermapbox(**kwargs)
+    else:
+        return go.Scattergeo(**kwargs)
+
+
 # Configuration & Page Setup
 st.set_page_config(
     page_title="Flowguard | Multi-Fluid Predictive Maintenance",
@@ -810,7 +821,7 @@ with tab1:
                         interp_lons.append(p1["lon"] + t * (p2["lon"] - p1["lon"]))
 
                 if "OpenStreetMap" in map_style_opt:
-                    fig_map.add_trace(go.Scattermapbox(
+                    fig_map.add_trace(create_scatter_map_trace(
                         lat=interp_lats,
                         lon=interp_lons,
                         mode="lines",
@@ -839,7 +850,7 @@ with tab1:
                     if "OpenStreetMap" in map_style_opt:
                         # Halo ring trace
                         if health_status in ("CRITICAL", "WARNING"):
-                            fig_map.add_trace(go.Scattermapbox(
+                            fig_map.add_trace(create_scatter_map_trace(
                                 lat=sub_df["lat"],
                                 lon=sub_df["lon"],
                                 mode="markers",
@@ -848,7 +859,7 @@ with tab1:
                                 hoverinfo="none",
                             ))
 
-                        fig_map.add_trace(go.Scattermapbox(
+                        fig_map.add_trace(create_scatter_map_trace(
                             lat=sub_df["lat"],
                             lon=sub_df["lon"],
                             mode="markers+text",
@@ -902,16 +913,21 @@ with tab1:
             zoom_level = 11.0 if len(df_map) == 1 else 6.2
 
             if "OpenStreetMap" in map_style_opt:
-                fig_map.update_layout(
-                    mapbox=dict(
-                        style="open-street-map",
-                        center=dict(lat=center_lat, lon=center_lon),
-                        zoom=zoom_level,
-                    ),
-                    height=420,
-                    margin={"r": 0, "t": 20, "l": 0, "b": 0},
-                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                map_layout_cfg = dict(
+                    style="open-street-map",
+                    center=dict(lat=center_lat, lon=center_lon),
+                    zoom=zoom_level,
                 )
+                map_kwargs = {
+                    "height": 420,
+                    "margin": {"r": 0, "t": 20, "l": 0, "b": 0},
+                    "legend": dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                }
+                if hasattr(go, "Scattermap"):
+                    map_kwargs["map"] = map_layout_cfg
+                else:
+                    map_kwargs["mapbox"] = map_layout_cfg
+                fig_map.update_layout(**map_kwargs)
             else:
                 fig_map.update_layout(
                     geo=dict(
