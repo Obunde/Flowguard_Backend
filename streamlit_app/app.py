@@ -750,6 +750,7 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
 with tab1:
     st.subheader(f"Geospatial Corridor: {corridor_title}")
 
+    # Live Fleet Status Ticker Bar
     station_alert_severity = {}
     for a in alerts_data:
         st_code = a.get("station_code") or a.get("station_id", "")
@@ -773,69 +774,161 @@ with tab1:
 
     df_map = pd.DataFrame(map_stations)
 
+    crit_st_cnt = sum(1 for s in map_stations if s["health"] == "CRITICAL")
+    warn_st_cnt = sum(1 for s in map_stations if s["health"] == "WARNING")
+    norm_st_cnt = sum(1 for s in map_stations if s["health"] == "NORMAL")
+
+    st.markdown(
+        f"⚡ **LIVE TELEMETRY TICKER**: Active Corridor: **{corridor_title}** | "
+        f"🟢 Normal: **{norm_st_cnt}** | 🟡 Warning: **{warn_st_cnt}** | 🔴 Critical Risk: **{crit_st_cnt}**"
+    )
+
     if not df_map.empty:
+        col_m0, col_m1 = st.columns([1, 4])
+        with col_m0:
+            map_style_opt = st.radio(
+                "Map Rendering Layer:",
+                ["🗺️ OpenStreetMap Live", "🛰️ Dark Vector Mesh"],
+                index=0,
+            )
+
         col_m1, col_m2 = st.columns([3, 2])
 
         with col_m1:
-            st.markdown("##### **2D Geospatial Corridor Map**")
+            st.markdown("##### **Live 2D Geospatial Transmission Map & Directional Flow**")
             fig_map = go.Figure()
 
+            # Generating fine-grained waypoints along corridor
             if len(df_map) > 1:
-                fig_map.add_trace(go.Scattergeo(
-                    lat=df_map["lat"],
-                    lon=df_map["lon"],
-                    mode="lines",
-                    line=dict(width=3, color="#1E3A8A"),
-                    name="Pipeline Main Route",
-                    hoverinfo="none",
-                ))
+                interp_lats = []
+                interp_lons = []
+                for idx in range(len(df_map) - 1):
+                    p1 = df_map.iloc[idx]
+                    p2 = df_map.iloc[idx + 1]
+                    for t in np.linspace(0, 1, 10):
+                        interp_lats.append(p1["lat"] + t * (p2["lat"] - p1["lat"]))
+                        interp_lons.append(p1["lon"] + t * (p2["lon"] - p1["lon"]))
 
-            for health_status, color, label in [
-                ("CRITICAL", "#DC2626", "Critical Alarm"),
-                ("WARNING", "#D97706", "Warning Active"),
-                ("NORMAL", "#16A34A", "Normal Operational"),
+                if "OpenStreetMap" in map_style_opt:
+                    fig_map.add_trace(go.Scattermapbox(
+                        lat=interp_lats,
+                        lon=interp_lons,
+                        mode="lines",
+                        line=dict(width=4, color="#1D4ED8"),
+                        name="Mainline Pipeline Route",
+                        hoverinfo="none",
+                    ))
+                else:
+                    fig_map.add_trace(go.Scattergeo(
+                        lat=interp_lats,
+                        lon=interp_lons,
+                        mode="lines",
+                        line=dict(width=4, color="#1D4ED8"),
+                        name="Mainline Pipeline Route",
+                        hoverinfo="none",
+                    ))
+
+            # Render Pulsing Outer Halos for Critical & Warning Stations
+            for health_status, color, label, marker_size in [
+                ("CRITICAL", "#DC2626", "Critical Alarm", 18),
+                ("WARNING", "#D97706", "Warning Active", 15),
+                ("NORMAL", "#16A34A", "Normal Operational", 12),
             ]:
                 sub_df = df_map[df_map["health"] == health_status]
                 if not sub_df.empty:
-                    fig_map.add_trace(go.Scattergeo(
-                        lat=sub_df["lat"],
-                        lon=sub_df["lon"],
-                        mode="markers+text",
-                        marker=dict(size=13, color=color, symbol="circle", line=dict(width=1.5, color="#FFFFFF")),
-                        text=sub_df["code"],
-                        textposition="top center",
-                        name=f"Health: {label}",
-                        hovertext=[
-                            f"<b>{row['name']} ({row['code']})</b><br>"
-                            f"Region: {row['region']}<br>"
-                            f"Capacity: {row['capacity']:,} m³/day<br>"
-                            f"Elevation: {row['elevation']} m<br>"
-                            f"Health: <b>{row['health']}</b>"
-                            for _, row in sub_df.iterrows()
-                        ],
-                        hoverinfo="text",
-                    ))
+                    if "OpenStreetMap" in map_style_opt:
+                        # Halo ring trace
+                        if health_status in ("CRITICAL", "WARNING"):
+                            fig_map.add_trace(go.Scattermapbox(
+                                lat=sub_df["lat"],
+                                lon=sub_df["lon"],
+                                mode="markers",
+                                marker=dict(size=marker_size + 8, color=color, opacity=0.35),
+                                showlegend=False,
+                                hoverinfo="none",
+                            ))
+
+                        fig_map.add_trace(go.Scattermapbox(
+                            lat=sub_df["lat"],
+                            lon=sub_df["lon"],
+                            mode="markers+text",
+                            marker=dict(size=marker_size, color=color),
+                            text=sub_df["code"],
+                            textposition="top right",
+                            name=f"Health: {label}",
+                            hovertext=[
+                                f"<b>{row['name']} ({row['code']})</b><br>"
+                                f"Region: {row['region']}<br>"
+                                f"Throughput: {row['capacity']:,} m³/day<br>"
+                                f"Elevation: {row['elevation']} m<br>"
+                                f"Operational Health: <b>{row['health']}</b>"
+                                for _, row in sub_df.iterrows()
+                            ],
+                            hoverinfo="text",
+                        ))
+                    else:
+                        if health_status in ("CRITICAL", "WARNING"):
+                            fig_map.add_trace(go.Scattergeo(
+                                lat=sub_df["lat"],
+                                lon=sub_df["lon"],
+                                mode="markers",
+                                marker=dict(size=marker_size + 8, color=color, opacity=0.35),
+                                showlegend=False,
+                                hoverinfo="none",
+                            ))
+
+                        fig_map.add_trace(go.Scattergeo(
+                            lat=sub_df["lat"],
+                            lon=sub_df["lon"],
+                            mode="markers+text",
+                            marker=dict(size=marker_size, color=color, symbol="circle", line=dict(width=1.5, color="#FFFFFF")),
+                            text=sub_df["code"],
+                            textposition="top center",
+                            name=f"Health: {label}",
+                            hovertext=[
+                                f"<b>{row['name']} ({row['code']})</b><br>"
+                                f"Region: {row['region']}<br>"
+                                f"Throughput: {row['capacity']:,} m³/day<br>"
+                                f"Elevation: {row['elevation']} m<br>"
+                                f"Operational Health: <b>{row['health']}</b>"
+                                for _, row in sub_df.iterrows()
+                            ],
+                            hoverinfo="text",
+                        ))
 
             center_lat = float(df_map["lat"].mean())
             center_lon = float(df_map["lon"].mean())
             proj_scale = 14.0 if len(df_map) == 1 else 6.5
+            zoom_level = 11.0 if len(df_map) == 1 else 6.2
 
-            fig_map.update_layout(
-                geo=dict(
-                    scope="africa",
-                    center=dict(lat=center_lat, lon=center_lon),
-                    projection_scale=proj_scale,
-                    showland=True,
-                    landcolor="#F8FAFC",
-                    showcountries=True,
-                    countrycolor="#CBD5E1",
-                    showlakes=True,
-                    lakecolor="#E0F2FE",
-                ),
-                height=420,
-                margin={"r": 0, "t": 20, "l": 0, "b": 0},
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-            )
+            if "OpenStreetMap" in map_style_opt:
+                fig_map.update_layout(
+                    mapbox=dict(
+                        style="open-street-map",
+                        center=dict(lat=center_lat, lon=center_lon),
+                        zoom=zoom_level,
+                    ),
+                    height=420,
+                    margin={"r": 0, "t": 20, "l": 0, "b": 0},
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                )
+            else:
+                fig_map.update_layout(
+                    geo=dict(
+                        scope="africa",
+                        center=dict(lat=center_lat, lon=center_lon),
+                        projection_scale=proj_scale,
+                        showland=True,
+                        landcolor="#F8FAFC",
+                        showcountries=True,
+                        countrycolor="#CBD5E1",
+                        showlakes=True,
+                        lakecolor="#E0F2FE",
+                    ),
+                    height=420,
+                    margin={"r": 0, "t": 20, "l": 0, "b": 0},
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                )
             st.plotly_chart(fig_map, use_container_width=True)
 
         with col_m2:
@@ -894,7 +987,7 @@ with tab1:
             st.plotly_chart(fig_3d_elev, use_container_width=True)
 
         st.markdown("---")
-        st.markdown("##### 🔎 **Station Inspector**")
+        st.markdown("##### 🔎 **Interactive Station Inspector & Diagnostic Telemetry**")
         sel_st_code = st.selectbox(
             "Select Station to Inspect",
             options=[s["code"] for s in stations_data],
