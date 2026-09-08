@@ -64,7 +64,10 @@ export async function loadAppData(): Promise<AppData> {
     id: "mock-user-id",
     email: "admin@flowgard.com",
     role: "admin",
-    tenant_id: "KPC"
+    tenant_id: "KPC",
+    full_name: "Mock Admin",
+    is_active: true,
+    permissions: []
   };
   const stations: Station[] = dashboard.stations.map((station) => ({
     code: station.code,
