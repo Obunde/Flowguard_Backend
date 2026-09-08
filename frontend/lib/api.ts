@@ -1,4 +1,5 @@
 import type { AppData, Capabilities, CurrentUser, Pump, Station } from "@/data/types";
+import { SNAP } from "@/data/mockData";
 
 interface BackendDashboard {
   generated_at: string | null;
@@ -57,22 +58,14 @@ const FALLBACK_CAPABILITIES: Capabilities = {
 };
 
 export async function loadAppData(): Promise<AppData> {
-  const [dashboardResponse, capabilitiesResponse, userResponse] = await Promise.all([
-    fetch("/api/backend/api/v1/dashboard/summary", { cache: "no-store" }),
-    fetch("/api/backend/api/v1/capabilities", { cache: "no-store" }),
-    fetch("/api/backend/api/v1/auth/me", { cache: "no-store" }),
-  ]);
-  if (dashboardResponse.status === 401 || userResponse.status === 401) {
-    throw new Error("UNAUTHENTICATED");
-  }
-  if (!dashboardResponse.ok || !userResponse.ok) {
-    throw new Error("Unable to load operational data");
-  }
-  const dashboard = (await dashboardResponse.json()) as BackendDashboard;
-  const capabilities = capabilitiesResponse.ok
-    ? ((await capabilitiesResponse.json()) as Capabilities)
-    : FALLBACK_CAPABILITIES;
-  const user = (await userResponse.json()) as CurrentUser;
+  const dashboard = SNAP as unknown as BackendDashboard;
+  const capabilities = FALLBACK_CAPABILITIES;
+  const user: CurrentUser = {
+    id: "mock-user-id",
+    email: "admin@flowgard.com",
+    role: "admin",
+    tenant_id: "KPC"
+  };
   const stations: Station[] = dashboard.stations.map((station) => ({
     code: station.code,
     name: station.name,
