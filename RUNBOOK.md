@@ -177,7 +177,7 @@ To deploy the interactive Streamlit dashboard on **Streamlit Community Cloud**:
 ## 6. Testing & Quality Assurance
 
 ### Automated Testing & Linting Checks
-To run code formatting, static analysis (Ruff), and the complete 68-test suite:
+To run code formatting, static analysis (Ruff), and the complete 83-test suite:
 ```bash
 ./scripts/check.sh
 ```
@@ -251,4 +251,3 @@ Before committing or pushing to GitHub:
 1. Verify no `.env` file or secret credentials are stage-committed (`git status`).
 2. Run unit tests (`pytest -v`).
 3. Validate OpenAPI schema at `http://localhost:8000/docs`.
->>>>>>> origin/feat/feature_engineering
