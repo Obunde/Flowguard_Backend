@@ -6,6 +6,21 @@
 
 ---
 
+## 🚀 Live Demo & Access
+
+The Flowguard web frontend is live at: **[https://flowguard-frontend.onrender.com/](https://flowguard-frontend.onrender.com/)**
+
+You can log in to the dashboard using any of the following role-based test accounts:
+
+- `admin@flowgard.com` (Tenant Admin)
+- `planner@flowgard.com` (Maintenance Planner)
+- `technician@flowgard.com` (Field Technician)
+- `viewer@flowgard.com` (Read-only Viewer)
+
+**Password for all accounts:** `Flowgard-UAT-2026!`
+
+---
+
 ## 1. Executive Summary & Operational Background
 
 The **Flowguard** backend platform is a multi-tenant, condition-based predictive maintenance engine engineered for high-pressure fluid transport pipeline networks. 
