@@ -49,15 +49,15 @@ services:
       migrate:
         condition: service_completed_successfully
 
-  dashboard:
+  frontend:
     build:
-      context: .
-      dockerfile: Dockerfile.dashboard
+      context: ./frontend
+      dockerfile: Dockerfile
     restart: unless-stopped
     ports:
-      - "8501:8501"
+      - "3000:3000"
     environment:
-      API_BASE_URL: http://api:8000
+      NEXT_PUBLIC_API_URL: http://localhost:8000
     depends_on:
       api:
         condition: service_started
