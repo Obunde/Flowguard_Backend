@@ -154,6 +154,12 @@ app/
 ├── work_order/             # Condition-based maintenance work orders & auto-generation
 ├── maintenance_schedule/   # RUL-ranked prioritised maintenance calendar
 └── model_metrics/          # Model accuracy, precision, recall & confusion matrix storage
+
+frontend/                   # Next.js React Application
+├── app/                    # Next.js App Router (Pages, API Routes, Layouts)
+├── components/             # Reusable React UI Components & Dashboard Views
+├── context/                # Global State Management
+└── lib/                    # API Hooks, Selectors, and Data Fetching Utilities
 ```
 
 ---
@@ -255,9 +261,11 @@ flowchart TB
         end
 
         API["api Container\n(FastAPI / Uvicorn)\nPort 8000:8000"]
+        Frontend["frontend Container\n(Next.js / React)\nPort 3000:3000"]
     end
 
-    Client -->|HTTP / JWT| API
+    Client -->|HTTP| Frontend
+    Frontend -->|HTTP / JWT| API
     DB <-->|Health Check| Migrate
     Migrate -->|Completed| API
     DB <-->|Schema Init| Seed
@@ -270,7 +278,7 @@ flowchart TB
 # 1. Clone repository & configure environment
 cp .env.example .env
 
-# 2. Build and launch PostgreSQL, Database Migrations, and FastAPI Backend
+# 2. Build and launch Postgres, Migrations, FastAPI Backend, and Next.js Frontend
 docker compose up --build -d
 
 # 3. Seed KPC anchor tenant data
@@ -284,6 +292,7 @@ python scripts/seed_platform_admin.py
 python scripts/seed_kpc_tenant.py
 ```
 
+- **Web Dashboard (Next.js):** `http://localhost:3000`
 - **Interactive API Documentation:** `http://localhost:8000/docs`
 - **Health Diagnostics:** `http://localhost:8000/health`
 
