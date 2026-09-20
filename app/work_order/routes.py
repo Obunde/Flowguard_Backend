@@ -59,7 +59,7 @@ def update_work_order(
     current_user: CurrentUser = Depends(require_permission(Permission.MANAGE_WORK_ORDERS)),
 ) -> WorkOrderRead:
     work_order = services.update_work_order(
-        db, tenant_id, work_order_id, payload, actor_user_id=current_user.id
+        db, tenant_id, work_order_id, payload, actor=current_user
     )
     if work_order is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Work order not found")
@@ -73,13 +73,13 @@ def record_outcome(work_order_id: uuid.UUID, payload: WorkOrderOutcome, db: Sess
 
 @router.post("/{work_order_id}/verification", response_model=WorkOrderRead)
 def verify(work_order_id: uuid.UUID, payload: VerificationWrite, db=Depends(get_db),
-           current=Depends(require_permission(Permission.MANAGE_WORK_ORDERS))):
+           current=Depends(require_permission(Permission.VERIFY_WORK_ORDERS))):
     return outcomes.verify(db, current, work_order_id, payload)
 
 
 @router.post("/{work_order_id}/follow-up", response_model=WorkOrderRead)
 def follow_up(work_order_id: uuid.UUID, db=Depends(get_db),
-              current=Depends(require_permission(Permission.MANAGE_WORK_ORDERS))):
+              current=Depends(require_permission(Permission.ASSIGN_WORK_ORDERS))):
     return outcomes.follow_up(db, current, work_order_id)
 
 

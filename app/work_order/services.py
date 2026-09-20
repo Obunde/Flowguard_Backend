@@ -13,6 +13,7 @@ from app.pump.models import Pump
 from app.work_order.models import WorkOrder, WorkOrderSource, WorkOrderStatus
 from app.work_order.schemas import WorkOrderCreate, WorkOrderUpdate
 from app.core.permissions import Permission, has_permission
+from app.core.auth import CurrentUser
 from app.user.models import User
 
 
@@ -62,7 +63,7 @@ def update_work_order(
     tenant_id: uuid.UUID,
     work_order_id: uuid.UUID,
     payload: WorkOrderUpdate,
-    actor_user_id: uuid.UUID | None = None,
+    actor: CurrentUser | None = None,
 ) -> WorkOrder | None:
     work_order = db.scalar(select(WorkOrder).where(
         WorkOrder.id == work_order_id, WorkOrder.tenant_id == tenant_id).with_for_update())
@@ -76,6 +77,8 @@ def update_work_order(
     if "status" in changes and changes["status"] is None:
         raise HTTPException(422, "Status cannot be empty")
     owner_id = changes.get("assigned_to_user_id")
+    if owner_id and actor and actor.role.value == "technician" and owner_id != actor.id:
+        raise HTTPException(403, "Technicians may only accept work assigned to themselves")
     if owner_id:
         owner = db.scalar(select(User).where(User.id == owner_id,
             User.tenant_id == tenant_id, User.is_active.is_(True)))
@@ -92,7 +95,7 @@ def update_work_order(
     record_event(
         db,
         tenant_id,
-        actor_user_id,
+        actor.id if actor else None,
         "work_order",
         work_order.id,
         "updated",
