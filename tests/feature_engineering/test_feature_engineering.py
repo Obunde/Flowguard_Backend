@@ -1,9 +1,4 @@
-"""Tests for app.feature_engineering — services.py only, no HTTP surface.
-
-Covers the Gold-layer read/flatten contract: happy path, the two typed
-error conditions, graceful weather/risk absence, tenant isolation, and the
-batch path's partial-failure + bounded-query behaviour.
-"""
+"""Tests for app.feature_engineering.services."""
 import uuid
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
@@ -22,9 +17,6 @@ FRESH_END = NOW - timedelta(minutes=1)
 STALE_END = NOW - services.MAX_WINDOW_AGE - timedelta(minutes=5)
 
 
-# --------------------------------------------------------------------------- #
-# builders (inline ORM, matching tests/prediction/test_prediction.py style)
-# --------------------------------------------------------------------------- #
 def _make_pump(db: Session, station, tag: str = "PS1-P01") -> Pump:
     pump = Pump(
         tenant_id=station.tenant_id,
@@ -107,9 +99,7 @@ def _make_risk(
 
 @contextmanager
 def _count_queries(db: Session):
-    """Count SELECT round-trips issued on the session's bind. No such helper
-    exists elsewhere in the suite, so this uses SQLAlchemy's own event hook
-    rather than a bespoke session spy."""
+    """Count SELECT round-trips on the session's bind."""
     bind = db.get_bind()
     counter = {"n": 0}
 
@@ -124,9 +114,6 @@ def _count_queries(db: Session):
         event.remove(bind, "after_cursor_execute", _on_exec)
 
 
-# --------------------------------------------------------------------------- #
-# build_feature_vector
-# --------------------------------------------------------------------------- #
 def test_happy_path_flattens_all_three_tiers(db_session: Session, station_a):
     pump = _make_pump(db_session, station_a)
     _make_window(db_session, station_a.tenant_id, pump.id)
@@ -137,15 +124,12 @@ def test_happy_path_flattens_all_three_tiers(db_session: Session, station_a):
 
     assert set(vec.keys()) == set(FEATURE_KEYS)
     assert all(isinstance(v, float) for v in vec.values())
-    # sensor tier
     assert vec["vibration_mean"] == 2.0
     assert vec["pressure_std"] == 30.0
     assert vec["sample_count"] == 60.0
-    # weather tier
     assert vec["weather_temperature_mean"] == 25.0
     assert vec["weather_precipitation_total_mm"] == 3.5
     assert vec["weather_data_available"] == 1.0
-    # risk tier
     assert vec["regional_risk_score"] == 0.62
     assert vec["risk_data_available"] == 1.0
 
@@ -178,8 +162,7 @@ def test_missing_weather_and_risk_degrade_gracefully(db_session: Session, statio
     assert vec["risk_data_available"] == 0.0
     assert vec["weather_temperature_mean"] == 0.0
     assert vec["regional_risk_score"] == 0.0
-    # sensor tier still fully populated
-    assert vec["vibration_mean"] == 2.0
+    assert vec["vibration_mean"] == 2.0  # sensor tier still populated
 
 
 def test_null_columns_in_window_fill_zero(db_session: Session, station_a):
@@ -199,8 +182,6 @@ def test_null_columns_in_window_fill_zero(db_session: Session, station_a):
 
 
 def test_tenant_isolation(db_session: Session, station_a, station_b):
-    """A window under tenant B must not satisfy a tenant-A request for the
-    same pump id."""
     pump_b = _make_pump(db_session, station_b, tag="PS1-PB1")
     _make_window(db_session, station_b.tenant_id, pump_b.id)
 
@@ -208,9 +189,6 @@ def test_tenant_isolation(db_session: Session, station_a, station_b):
         services.build_feature_vector(db_session, station_a.tenant_id, pump_b.id)
 
 
-# --------------------------------------------------------------------------- #
-# build_feature_batch
-# --------------------------------------------------------------------------- #
 def test_batch_omits_pumps_without_a_fresh_window(db_session: Session, station_a):
     full = _make_pump(db_session, station_a, tag="PS1-P01")
     _make_window(db_session, station_a.tenant_id, full.id)
@@ -234,8 +212,6 @@ def test_batch_empty_input_returns_empty(db_session: Session, station_a):
 
 
 def test_batch_query_count_is_bounded(db_session: Session, station_a, station_b):
-    """Query count must not grow with the number of pumps."""
-
     def _fleet(station, n: int) -> list[uuid.UUID]:
         ids = []
         for i in range(n):
@@ -250,20 +226,15 @@ def test_batch_query_count_is_bounded(db_session: Session, station_a, station_b)
     tenant_b_id = station_b.tenant_id
 
     small = _fleet(station_a, 1)
-    # Read args before opening the counter so an expired-attribute refresh
-    # doesn't get counted as one of the batch's queries.
+    # read args before opening the counter (avoid counting an attr refresh)
     with _count_queries(db_session) as c1:
         services.build_feature_batch(db_session, tenant_a_id, small)
-    small_count = c1["n"]
 
     large = _fleet(station_b, 6)
     with _count_queries(db_session) as c2:
         services.build_feature_batch(db_session, tenant_b_id, large)
-    large_count = c2["n"]
 
-    assert small_count == large_count
-    # window + pump + weather + risk
-    assert large_count == 4
+    assert c1["n"] == c2["n"] == 4  # window + pump + weather + risk
 
 
 def test_batch_matches_single_for_a_fresh_pump(db_session: Session, station_a):

@@ -16,8 +16,7 @@ class TenantBase(BaseModel):
 
 
 class TenantCreate(TenantBase):
-    """Platform-admin onboarding of a new tenant. Also seeds that tenant's
-    first ADMIN user, who is emailed a first-time password."""
+    """New tenant + its first ADMIN (emailed a first-time password)."""
 
     admin_email: EmailStr
     admin_full_name: str
@@ -42,8 +41,7 @@ class TenantRead(TenantBase):
 
 
 class TenantOnboardRead(TenantRead):
-    """Returned from tenant onboarding: the tenant plus the id of the ADMIN
-    user that was created and emailed an invite."""
+    """Onboarding result: the tenant plus its created ADMIN."""
 
     admin_user_id: uuid.UUID
     admin_email: EmailStr

@@ -14,8 +14,7 @@ class UserBase(BaseModel):
 
 
 class UserCreate(UserBase):
-    """A tenant admin's invite for a new user. No password: the system
-    generates a first-time one and emails it (see services.onboard_user)."""
+    """Invite for a new user — no password; one is generated and emailed."""
 
 
 class UserUpdate(BaseModel):
@@ -35,8 +34,7 @@ class UserRead(UserBase):
 
 
 class ResetPasswordRequest(BaseModel):
-    """First-login password change. `reset_token` is the one-shot token the
-    login route returns when the account still holds its emailed password."""
+    """First-login password change; `reset_token` comes from the login route."""
 
     reset_token: str
     new_password: str
@@ -48,8 +46,8 @@ class TokenResponse(BaseModel):
 
 
 class LoginResponse(BaseModel):
-    """Either a normal login (`access_token` set) or a first login that still
-    needs a password change (`reset_required` true, `reset_token` set)."""
+    """`access_token` on a normal login; `reset_required` + `reset_token` on a
+    first login."""
 
     token_type: str = "bearer"
     reset_required: bool = False

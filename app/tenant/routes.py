@@ -1,10 +1,4 @@
-"""Tenant management routes.
-
-Cross-tenant by nature (creating/listing tenants), so these are gated on the
-PLATFORM_ADMIN role rather than by app.core.tenancy.get_current_tenant_id —
-see the note in app/tenant/services.py. Routes only translate HTTP <->
-services; no business logic lives here.
-"""
+"""Tenant management routes — cross-tenant, gated on the platform_admin role."""
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status

@@ -88,9 +88,7 @@ def db_session():
 
 @pytest.fixture(autouse=True)
 def sent_emails(monkeypatch) -> list[dict]:
-    """Capture onboarding emails instead of hitting SMTP. Autouse so no test
-    can accidentally make a real send; return value is the list of messages
-    (dicts with to/subject/body) for tests that want to assert on them."""
+    """Capture onboarding emails instead of hitting SMTP."""
     captured: list[dict] = []
 
     def _capture(*, to: str, subject: str, body: str) -> None:

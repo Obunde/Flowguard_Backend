@@ -1,40 +1,18 @@
-"""Reads ETL Gold tables (`app.etl.gold`) and flattens them into model-ready
-feature vectors for prediction / rul / flowgard_engine / explainability.
+"""Reads ETL Gold tables and flattens them into model-ready feature vectors
+for prediction / rul / flowgard_engine / explainability. Pure read+transform,
+Gold-only, no tables or HTTP surface of its own.
 
-No `models.py` / `routes.py` here by design — this module owns no tables and
-has no HTTP surface. It is a pure read + transform layer between ETL and the
-modelling modules. `schemas.py` (allowed for an HTTP-less module, cf.
-`app/flowgard_engine/schemas.py`) holds the one definition of the vector's
-shape.
+Sources: PumpFeatureWindow (by pump_id), WeatherDailyRollup and
+StationRiskComposite (by the pump's station_id, looked up via
+`app.pump.models.Pump`).
 
-Data sources, all Gold-only (never bronze/silver):
-
-===============  =========================  ===================================
-Tier             Table                      Join key
-===============  =========================  ===================================
-sensor stats     ``PumpFeatureWindow``      ``pump_id``
-weather context  ``WeatherDailyRollup``     pump -> ``station_id``
-regional risk    ``StationRiskComposite``   pump -> ``station_id``
-===============  =========================  ===================================
-
-The pump -> station lookup goes through `app.pump.models.Pump`, matching what
-`prediction` / `flowgard_engine` / `explainability` already do.
-
-**Freshness policy.** The sensor window is a live signal (~1 min cadence): if
-the newest one for a pump is older than `MAX_WINDOW_AGE` a live risk decision
-should not be made on it, so `build_feature_vector` raises
-`StaleFeatureDataError`. Weather and risk update on a much slower cadence by
-design, so an old — or entirely absent — weather/risk join is *not* an error:
-those fields fall back to ``0.0`` and a companion ``*_data_available`` flag is
-set to ``0.0`` so a downstream model / SHAP can tell "genuinely zero" from
-"not joined". A NULL numeric column inside an otherwise-valid window is
-likewise filled with ``0.0`` (``sample_count`` is carried through so a thin
-window can still be down-weighted).
-
-`build_feature_batch` is for scheduled fleet-wide scoring: it never raises for
-a single bad pump — a pump with no fresh window is simply omitted from the
-returned mapping (callers that need to tell "stale" from "never existed"
-should call `build_feature_vector` per pump).
+Freshness: the sensor window is a live signal, so `build_feature_vector`
+raises `StaleFeatureDataError` when the newest one is older than
+`MAX_WINDOW_AGE`, and `FeatureVectorUnavailableError` when none exists.
+Weather/risk update slowly, so a missing or old join is not an error — those
+fields fall back to 0.0 with a `*_data_available` flag at 0.0. A NULL column
+inside a valid window fills 0.0. `build_feature_batch` never raises for one
+bad pump: pumps without a fresh window are omitted from the result.
 """
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -46,26 +24,21 @@ from app.etl.gold.models import PumpFeatureWindow, StationRiskComposite, Weather
 from app.feature_engineering.schemas import FeatureVector
 from app.pump.models import Pump
 
-# A sensor window older than this is considered too stale to score a live
-# risk decision on. Chosen against the ~1-minute raw sensor cadence: an hour
-# is dozens of missed windows, i.e. a real ingestion gap rather than jitter.
+# ~1-minute raw sensor cadence, so an hour is dozens of missed windows.
 MAX_WINDOW_AGE = timedelta(hours=1)
 
 
 class FeatureEngineeringError(Exception):
-    """Base for the two conditions a caller is expected to branch on."""
+    """Base for the two conditions a caller branches on."""
 
 
 class FeatureVectorUnavailableError(FeatureEngineeringError):
-    """No `PumpFeatureWindow` exists at all for this pump/tenant yet."""
+    """No `PumpFeatureWindow` exists for this pump/tenant yet."""
 
     def __init__(self, tenant_id: uuid.UUID, pump_id: uuid.UUID) -> None:
         self.tenant_id = tenant_id
         self.pump_id = pump_id
-        super().__init__(
-            f"no feature window for pump {pump_id} (tenant {tenant_id}); "
-            "ETL Gold has produced nothing for this pump"
-        )
+        super().__init__(f"no feature window for pump {pump_id} (tenant {tenant_id})")
 
 
 class StaleFeatureDataError(FeatureEngineeringError):
@@ -79,22 +52,17 @@ class StaleFeatureDataError(FeatureEngineeringError):
         self.last_window_end = last_window_end
         super().__init__(
             f"newest feature window for pump {pump_id} (tenant {tenant_id}) ends at "
-            f"{last_window_end.isoformat()}, older than the {MAX_WINDOW_AGE} freshness limit"
+            f"{last_window_end.isoformat()}, older than the {MAX_WINDOW_AGE} limit"
         )
 
 
-# --------------------------------------------------------------------------- #
-# internal helpers
-# --------------------------------------------------------------------------- #
 def _f(value: object) -> float:
-    """Gold numeric columns come back as `Decimal | None` — normalise to a
-    plain float, treating NULL as 0.0."""
+    """Decimal | None from a Gold column -> float, NULL as 0.0."""
     return float(value) if value is not None else 0.0
 
 
 def _aware(moment: datetime) -> datetime:
-    """Rows written with a naive timestamp are stored as UTC — make them
-    comparable to `datetime.now(UTC)`."""
+    """Naive timestamps are stored as UTC — make them comparable to now(UTC)."""
     return moment if moment.tzinfo is not None else moment.replace(tzinfo=UTC)
 
 
@@ -134,10 +102,8 @@ def _latest_per_group(
     tenant_id: uuid.UUID,
     ids: list[uuid.UUID],
 ) -> dict[uuid.UUID, object]:
-    """One query: the newest row of `model` per `group_col` value, restricted
-    to `tenant_id` and `ids`. Portable (group-by-max + self-join, no
-    DISTINCT ON). Ties on `order_col` are broken arbitrarily but
-    deterministically per run."""
+    """One query: newest row of `model` per `group_col`, scoped to `tenant_id`
+    and `ids`. Portable group-by-max + self-join (no DISTINCT ON)."""
     if not ids:
         return {}
     newest = (
@@ -156,19 +122,12 @@ def _latest_per_group(
     return out
 
 
-# --------------------------------------------------------------------------- #
-# public API
-# --------------------------------------------------------------------------- #
 def build_feature_vector(
     db: Session, tenant_id: uuid.UUID, pump_id: uuid.UUID
 ) -> dict[str, float]:
-    """Assemble the latest model-ready feature vector for one pump.
-
-    Raises `FeatureVectorUnavailableError` if ETL Gold has produced no window
-    for the pump, `StaleFeatureDataError` if the newest window is older than
-    `MAX_WINDOW_AGE`, and `ValueError` if `pump_id` is not a pump in this
-    tenant. A missing weather / risk join is not an error (see module docs).
-    """
+    """Latest feature vector for one pump. Raises `FeatureVectorUnavailableError`
+    (no window), `StaleFeatureDataError` (window too old), or `ValueError`
+    (pump not in this tenant)."""
     window = db.scalar(
         select(PumpFeatureWindow)
         .where(
@@ -211,15 +170,9 @@ def build_feature_vector(
 def build_feature_batch(
     db: Session, tenant_id: uuid.UUID, pump_ids: list[uuid.UUID]
 ) -> dict[uuid.UUID, dict[str, float]]:
-    """Batched `build_feature_vector` for scheduled fleet-wide scoring.
-
-    Issues a fixed number of queries (one per data source) regardless of
-    ``len(pump_ids)``. A pump with no window, or whose newest window is
-    stale, is **omitted** from the result rather than raising — a fleet
-    scoring run should not abort over one lagging pump. Callers needing to
-    distinguish "stale" from "never existed" should fall back to
-    `build_feature_vector` per pump.
-    """
+    """Batched `build_feature_vector` for fleet-wide scoring. Fixed query count
+    regardless of `len(pump_ids)`; pumps without a fresh window are omitted
+    rather than raising."""
     unique_ids = list(dict.fromkeys(pump_ids))
     if not unique_ids:
         return {}
@@ -234,11 +187,7 @@ def build_feature_batch(
         tenant_id,
         unique_ids,
     )
-    fresh = {
-        pid: win
-        for pid, win in windows.items()
-        if not _is_stale(win, now)
-    }
+    fresh = {pid: win for pid, win in windows.items() if not _is_stale(win, now)}
     if not fresh:
         return {}
 
@@ -270,9 +219,7 @@ def build_feature_batch(
     result: dict[uuid.UUID, dict[str, float]] = {}
     for pid, window in fresh.items():
         station_id = station_by_pump.get(pid)
-        if station_id is None:
-            # Window exists but no matching pump row in this tenant — skip
-            # rather than emit a vector that looks real.
+        if station_id is None:  # window with no matching pump row in this tenant
             continue
         result[pid] = _assemble(
             window,

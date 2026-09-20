@@ -95,7 +95,7 @@ pip install -r requirements.txt   # or `uv sync`
 # 3. Execute database migrations
 alembic upgrade head
 
-# 4. Seed the platform admin (platform.admin@flow.com / Admin@123 by default)
+# 4. Seed the platform admin (set PLATFORM_ADMIN_PASSWORD in .env first)
 python scripts/seed_platform_admin.py
 
 # 5. Seed KPC anchor tenant reference data (stations + pump fleet)

@@ -19,15 +19,13 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     bind = op.get_bind()
 
-    # 1. New enum member for the cross-tenant platform admin.
+    # ADD VALUE can't run inside the migration transaction.
     if bind.dialect.name == "postgresql":
         with op.get_context().autocommit_block():
             op.execute("ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'PLATFORM_ADMIN'")
 
-    # 2. The platform admin has no tenant.
     op.alter_column("user", "tenant_id", existing_type=sa.Uuid(), nullable=True)
 
-    # 3. First-login forced password reset flag.
     op.add_column(
         "user",
         sa.Column(
