@@ -52,6 +52,31 @@ def test_onboard_tenant_creates_admin_and_emails_password(db_session: Session, s
     assert by_slug.id == tenant.id
 
 
+def test_tenant_routes_crud(client, platform_admin_headers, tenant_a):
+    # List tenants
+    res = client.get("/api/v1/tenants", headers=platform_admin_headers)
+    assert res.status_code == 200
+    assert len(res.json()) >= 1
+
+    # Get single tenant
+    res = client.get(f"/api/v1/tenants/{tenant_a.id}", headers=platform_admin_headers)
+    assert res.status_code == 200
+    assert res.json()["name"] == tenant_a.name
+
+    # Update tenant
+    res = client.patch(
+        f"/api/v1/tenants/{tenant_a.id}",
+        json={"name": "Updated Pipeline Corp"},
+        headers=platform_admin_headers,
+    )
+    assert res.status_code == 200
+    assert res.json()["name"] == "Updated Pipeline Corp"
+
+    # 404 test
+    res = client.get("/api/v1/tenants/00000000-0000-0000-0000-000000000000", headers=platform_admin_headers)
+    assert res.status_code == 404
+
+
 def test_onboard_tenant_endpoint_requires_platform_admin(
     client, platform_admin_headers, sent_emails
 ):

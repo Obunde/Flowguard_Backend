@@ -1,0 +1,134 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+  --color-background: #f7f6f4; --color-bg: #f7f6f4;
+  --color-foreground: #26221f; --color-text: #26221f;
+  --color-card: #ffffff; --color-surface: #ffffff;
+  --color-muted: #f1ede9; --color-accent: #f1ede9;
+  --color-muted-foreground: #736c67; --color-text-mute: #736c67; --color-text-faint: #89817b;
+  --color-border: #e8e3de; --color-border-strong: #d8d0c9;
+  --color-primary: #b3312c; --color-teal: #b3312c; --color-teal-light: #f8e9e7;
+  --color-blue: #2a78d6; --color-blue-light: #eaf2fc;
+  --color-green: #0ca30c; --color-green-light: #eaf7ea;
+  --color-amber: #b6790a; --color-amber-light: #fdf3de;
+  --color-red: #d03b3b; --color-red-light: #fdecec;
+  --color-purple: #7b61c9; --color-purple-light: #f0ecfb;
+  --color-dark: #1f1b19; --color-sidebar: #1f1b19; --color-sidebar-foreground: #f5f2ef; --color-sidebar-muted: #b2aeac; --color-sidebar-border: #322019; --color-sidebar-accent: #3f201e; --color-sidebar-primary: #b3312c;
+  --color-status-critical: #d03b3b; --color-status-critical-bg: #fdecec; --color-status-high: #ec835a; --color-status-high-bg: #fdf0e9; --color-status-medium: #b6790a; --color-status-medium-bg: #fdf3de; --color-status-low: #0ca30c; --color-status-low-bg: #eaf7ea; --color-status-info: #2a78d6; --color-status-info-bg: #eaf2fc;
+  --radius-squircle-sm: 8px; --radius-squircle: 10px; --radius-squircle-lg: 12px; --radius-squircle-xl: 16px; --radius-pill: 999px;
+  --shadow-soft: 0 1px 2px rgba(38,34,31,.04), 0 3px 10px rgba(38,34,31,.05);
+  --shadow-medium: 0 5px 18px rgba(38,34,31,.09); --shadow-elevated: 0 18px 48px rgba(38,34,31,.18);
+  --ease-spring: cubic-bezier(.22,1,.36,1);
+}
+
+html {
+  height: 100%;
+}
+
+body {
+  height: 100%;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-teal) 30%, transparent);
+}
+
+/* Slim, unobtrusive scrollbars in the Apple style */
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.18) transparent;
+}
+.scroll-thin::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.scroll-thin::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.16);
+  border-radius: 99px;
+}
+.scroll-thin::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.26);
+}
+
+/* ---- Glass materials ---- */
+.glass-dark {
+  background: color-mix(in srgb, var(--color-dark) 78%, transparent);
+  backdrop-filter: blur(28px) saturate(160%);
+  -webkit-backdrop-filter: blur(28px) saturate(160%);
+}
+
+.glass-light {
+  background: color-mix(in srgb, white 72%, transparent);
+  backdrop-filter: blur(22px) saturate(180%);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+}
+
+/* ---- Motion ---- */
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-modal-in {
+  animation: modal-in 0.32s var(--ease-spring);
+}
+.animate-overlay-in {
+  animation: overlay-in 0.22s ease-out;
+}
+.animate-toast-in {
+  animation: toast-in 0.28s var(--ease-spring);
+}
+.animate-fade-in-up {
+  animation: fade-in-up 0.28s var(--ease-spring) both;
+}
+
+h1 { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; }
+h2 { font-size: 1.25rem; font-weight: 800; letter-spacing: -0.01em; }
+h3 { font-size: 1.125rem; font-weight: 700; }
+table { font-size: .875rem; }
+th { font-size: .75rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }

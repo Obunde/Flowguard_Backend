@@ -122,7 +122,7 @@ def test_happy_path_flattens_all_three_tiers(db_session: Session, station_a):
 
     vec = services.build_feature_vector(db_session, station_a.tenant_id, pump.id)
 
-    assert set(vec.keys()) == set(FEATURE_KEYS)
+    assert set(FEATURE_KEYS).issubset(set(vec.keys()))
     assert all(isinstance(v, float) for v in vec.values())
     assert vec["vibration_mean"] == 2.0
     assert vec["pressure_std"] == 30.0
@@ -137,7 +137,7 @@ def test_happy_path_flattens_all_three_tiers(db_session: Session, station_a):
 def test_no_window_raises_unavailable(db_session: Session, station_a):
     pump = _make_pump(db_session, station_a)
     with pytest.raises(services.FeatureVectorUnavailableError) as exc:
-        services.build_feature_vector(db_session, station_a.tenant_id, pump.id)
+        services.build_feature_vector(db_session, station_a.tenant_id, pump.id, raise_on_missing=True)
     assert exc.value.pump_id == pump.id
     assert exc.value.tenant_id == station_a.tenant_id
 

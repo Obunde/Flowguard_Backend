@@ -6,6 +6,7 @@ per test session; each test gets a clean slate via a post-test truncate
 rather than transaction rollback, since service functions call `db.commit()`
 internally (a nested-SAVEPOINT scheme would fight that).
 """
+import math
 import uuid
 
 import pytest
@@ -56,11 +57,31 @@ except Exception:
     )
 
 
+class SqliteStdDev:
+    def __init__(self):
+        self.values = []
+
+    def step(self, value):
+        if value is not None:
+            self.values.append(float(value))
+
+    def finalize(self):
+        if len(self.values) <= 1:
+            return 0.0
+        mean = sum(self.values) / len(self.values)
+        variance = sum((x - mean) ** 2 for x in self.values) / (len(self.values) - 1)
+        return math.sqrt(variance)
+
+
 @event.listens_for(engine, "connect")
 def _set_sqlite_pragma(dbapi_connection, connection_record):
     if "sqlite" in str(engine.url):
+        dbapi_connection.create_aggregate("stddev", 1, SqliteStdDev)
+        dbapi_connection.create_aggregate("stddev_samp", 1, SqliteStdDev)
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA foreign_keys=ON")
+        for schema in ["master", "bronze", "silver", "gold"]:
+            cursor.execute(f"ATTACH DATABASE ':memory:' AS {schema}")
         cursor.close()
 
 
