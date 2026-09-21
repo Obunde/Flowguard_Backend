@@ -1,16 +1,6 @@
-"""Business logic for users.
-
-Two deliberate exceptions to the "every query is tenant-scoped" rule in this
-module:
-
-* `authenticate_user` looks a user up by email alone — at login the client
-  only has an email + password, not a tenant. Email is globally unique for
-  exactly this reason (see app/user/models.py). The tenant_id on the
-  returned user is what gets embedded in the JWT.
-* `reset_password` looks a user up by id alone — the caller has already
-  proven identity by presenting a valid one-shot reset token.
-
-Everything else takes `tenant_id` as an explicit argument as usual.
+"""Business logic for users. Tenant-scoped except `authenticate_user` (by
+email, at login) and `reset_password` (by id, identity already proven by the
+reset token).
 """
 import secrets
 import string
@@ -22,16 +12,14 @@ from sqlalchemy.orm import Session
 
 from app.core import email as email_service
 from app.core.auth import hash_password, verify_password
-from app.user.models import User, UserRole
+from app.user.models import User
 from app.user.schemas import UserCreate, UserUpdate
 
 _TEMP_PW_ALPHABET = string.ascii_letters + string.digits
 
 
 def generate_temp_password() -> str:
-    """A random first-time password. Guaranteed to contain a lower- and
-    upper-case letter, a digit and a symbol so it clears common policies the
-    user's real password will also have to meet."""
+    """Random first-time password with at least one lower/upper/digit/symbol."""
     core = "".join(secrets.choice(_TEMP_PW_ALPHABET) for _ in range(12))
     return (
         secrets.choice(string.ascii_lowercase)
@@ -65,11 +53,8 @@ def onboard_user(
     context: str = "An account has been created for you on Flowgard.",
 ) -> User:
     """Create a tenant user with a generated first-time password and email it.
-
-    The user is committed even if the email send then fails — the route
-    surface converts a send failure into a 503 so the operator can retry the
-    invite, but we don't want a flaky SMTP server to roll back a valid user.
-    """
+    The user is committed before the send, so a mail failure (surfaced as 503)
+    doesn't roll it back."""
     temp_password = generate_temp_password()
     user = User(
         tenant_id=tenant_id,
@@ -111,10 +96,8 @@ def update_user(
 
 
 def authenticate_user(db: Session, email: str, password: str) -> User | None:
-    """Global-by-email lookup used only by the login route. See module
-    docstring for why this doesn't take tenant_id. Returns the user even when
-    `must_reset_password` is set — the route decides what to hand back.
-    """
+    """Login lookup by email. Returns the user even when `must_reset_password`
+    is set — the route decides what to hand back."""
     user = db.scalar(select(User).where(User.email == email))
     if user is None or not user.is_active:
         return None
@@ -127,8 +110,7 @@ def authenticate_user(db: Session, email: str, password: str) -> User | None:
 
 
 def reset_password(db: Session, user_id: uuid.UUID, new_password: str) -> User | None:
-    """Set a new password and clear the first-login flag. Identity is assumed
-    already proven by a valid reset token (see app/user/routes.py)."""
+    """Set a new password and clear the first-login flag."""
     user = db.get(User, user_id)
     if user is None or not user.is_active:
         return None
@@ -137,9 +119,3 @@ def reset_password(db: Session, user_id: uuid.UUID, new_password: str) -> User |
     db.commit()
     db.refresh(user)
     return user
-
-
-def get_platform_admin_by_email(db: Session, email: str) -> User | None:
-    return db.scalar(
-        select(User).where(User.email == email, User.role == UserRole.PLATFORM_ADMIN)
-    )

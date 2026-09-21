@@ -95,3 +95,10 @@ def test_onboard_tenant_endpoint_requires_platform_admin(
     assert body["admin_email"] == "admin@beta.example.com"
     assert "admin_user_id" in body
     assert len(sent_emails) == 1
+
+
+def test_tenant_bound_platform_admin_claim_is_rejected(client, tenant_a, db_session):
+    """A user with the platform_admin role but a tenant_id must not pass the gate."""
+    rogue = make_user(db_session, tenant_a, UserRole.PLATFORM_ADMIN)
+    response = client.get("/api/v1/tenants", headers=auth_headers(rogue))
+    assert response.status_code == 403

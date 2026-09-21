@@ -7,6 +7,7 @@ rather than transaction rollback, since service functions call `db.commit()`
 internally (a nested-SAVEPOINT scheme would fight that).
 """
 import math
+import secrets
 import uuid
 
 import pytest
@@ -42,6 +43,8 @@ from app.tenant.models import Tenant  # noqa: E402
 from app.user.models import User, UserRole  # noqa: E402
 
 TEST_DATABASE_URL = settings.test_database_url or settings.database_url
+# Fresh per run; never a committed literal.
+TEST_PASSWORD = secrets.token_urlsafe(12)
 
 try:
     engine = create_engine(TEST_DATABASE_URL, future=True)
@@ -109,9 +112,7 @@ def db_session():
 
 @pytest.fixture(autouse=True)
 def sent_emails(monkeypatch) -> list[dict]:
-    """Capture onboarding emails instead of hitting SMTP. Autouse so no test
-    can accidentally make a real send; return value is the list of messages
-    (dicts with to/subject/body) for tests that want to assert on them."""
+    """Capture onboarding emails instead of hitting SMTP."""
     captured: list[dict] = []
 
     def _capture(*, to: str, subject: str, body: str) -> None:
@@ -178,7 +179,7 @@ def make_user(
     user = User(
         tenant_id=tenant.id,
         email=f"user-{uuid.uuid4().hex[:8]}@example.com",
-        hashed_password=hash_password("password123"),
+        hashed_password=hash_password(TEST_PASSWORD),
         full_name="Test User",
         role=role,
         must_reset_password=must_reset_password,
@@ -193,7 +194,7 @@ def make_platform_admin(db_session: Session) -> User:
     user = User(
         tenant_id=None,
         email=f"platform-{uuid.uuid4().hex[:8]}@flow.com",
-        hashed_password=hash_password("password123"),
+        hashed_password=hash_password(TEST_PASSWORD),
         full_name="Platform Admin",
         role=UserRole.PLATFORM_ADMIN,
     )

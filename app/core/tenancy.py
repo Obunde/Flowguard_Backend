@@ -19,14 +19,8 @@ from app.core.auth import CurrentUser, get_current_user
 def get_current_tenant_id(
     current_user: CurrentUser = Depends(get_current_user),
 ) -> uuid.UUID:
-    """The tenant_id to filter every query by. Import this in routes.py,
-    not `get_current_user` directly, when a route only cares about tenant
-    scope and not the rest of the identity.
-
-    The platform admin has no tenant, so any route depending on this is
-    off-limits to them — they act only through the platform-scoped tenant
-    management routes (see app/tenant/routes.py).
-    """
+    """The tenant_id to filter every query by. 403s the platform admin, who
+    has no tenant."""
     if current_user.tenant_id is None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

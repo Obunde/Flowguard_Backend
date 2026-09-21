@@ -1,5 +1,4 @@
-"""User routes: login, first-login password reset, and tenant-scoped user
-onboarding/management. Thin: translate HTTP <-> services."""
+"""User routes: login, first-login reset, tenant-scoped onboarding/management."""
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -42,7 +41,6 @@ def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
     if user.must_reset_password:
-        # No access token until the first-time password is changed.
         return LoginResponse(reset_required=True, reset_token=create_reset_token(user.id))
     return LoginResponse(access_token=_access_token_for(user))
 

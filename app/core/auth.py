@@ -24,12 +24,8 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/users/login", auto_error=
 
 @dataclass(frozen=True)
 class CurrentUser:
-    """The decoded identity attached to a request. `tenant_id` is what
-    app/core/tenancy.py hands to every service call.
-
-    `tenant_id` is None for the platform admin, who is not scoped to any
-    tenant — see app/user/models.py. Tenant-scoped routes depend on
-    app/core/tenancy.get_current_tenant_id, which rejects that case.
+    """Decoded request identity. `tenant_id` is None for the platform admin;
+    tenant-scoped routes reject that via app/core/tenancy.py.
     """
 
     id: uuid.UUID
@@ -72,17 +68,14 @@ def create_access_token(
         "type": "access",
         "exp": expire,
     }
-    # Omitted entirely for the platform admin, who has no tenant.
-    if tenant_id is not None:
+    if tenant_id is not None:  # omitted for the platform admin
         payload["tenant_id"] = str(tenant_id)
     return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
 
 def create_reset_token(user_id: uuid.UUID) -> str:
-    """One-shot token handed out at login when the user still has a first-time
-    password to change. Accepted only by `decode_reset_token` (the
-    reset-password route) — its `type` claim keeps it from being replayed as
-    an access token."""
+    """One-shot token for the first-login password change. The `type` claim
+    keeps it from being replayed as an access token."""
     expire = datetime.now(UTC) + timedelta(minutes=settings.jwt_reset_token_expire_minutes)
     payload = {"sub": str(user_id), "type": "reset", "exp": expire}
     return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
@@ -124,8 +117,7 @@ def decode_access_token(token: str) -> CurrentUser:
 
 
 def decode_reset_token(token: str) -> uuid.UUID:
-    """Returns the user id embedded in a reset token, or 401 if the token is
-    invalid, expired, or not a reset token."""
+    """User id from a reset token; 401 if invalid, expired, or not a reset token."""
     payload = _decode(token)
     if payload.get("type") != "reset":
         raise HTTPException(

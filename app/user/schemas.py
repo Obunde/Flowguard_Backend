@@ -2,9 +2,16 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
 
 from app.user.models import UserRole
+
+
+def _reject_platform_admin(role: UserRole | None) -> UserRole | None:
+    """Tenant admins manage tenant users only; platform_admin is seed-only."""
+    if role == UserRole.PLATFORM_ADMIN:
+        raise ValueError("platform_admin cannot be assigned through user management")
+    return role
 
 
 class UserBase(BaseModel):
@@ -14,14 +21,17 @@ class UserBase(BaseModel):
 
 
 class UserCreate(UserBase):
-    """A tenant admin's invite for a new user. No password: the system
-    generates a first-time one and emails it (see services.onboard_user)."""
+    """Invite for a new user — no password; one is generated and emailed."""
+
+    _check_role = field_validator("role")(_reject_platform_admin)
 
 
 class UserUpdate(BaseModel):
     full_name: str | None = None
     role: UserRole | None = None
     is_active: bool | None = None
+
+    _check_role = field_validator("role")(_reject_platform_admin)
 
 
 class UserRead(UserBase):
@@ -35,8 +45,7 @@ class UserRead(UserBase):
 
 
 class ResetPasswordRequest(BaseModel):
-    """First-login password change. `reset_token` is the one-shot token the
-    login route returns when the account still holds its emailed password."""
+    """First-login password change; `reset_token` comes from the login route."""
 
     reset_token: str
     new_password: str
@@ -48,8 +57,8 @@ class TokenResponse(BaseModel):
 
 
 class LoginResponse(BaseModel):
-    """Either a normal login (`access_token` set) or a first login that still
-    needs a password change (`reset_required` true, `reset_token` set)."""
+    """`access_token` on a normal login; `reset_required` + `reset_token` on a
+    first login."""
 
     token_type: str = "bearer"
     reset_required: bool = False

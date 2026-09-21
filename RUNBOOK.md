@@ -236,7 +236,7 @@ python scripts/seed_kpc_tenant.py
 
 ### Onboarding a Tenant and Its Users
 
-1. Log in as the platform admin (`POST /api/v1/users/login`, default `platform.admin@flow.com` / `Admin@123`).
+1. Log in as the platform admin (`POST /api/v1/users/login`, `PLATFORM_ADMIN_EMAIL` / `PLATFORM_ADMIN_PASSWORD` from `.env`).
 2. `POST /api/v1/tenants` with the tenant config plus `admin_email` / `admin_full_name`. This creates the tenant and its first `admin` user and emails that admin a first-time password (SMTP must be configured, or the call returns `503` with the tenant still created).
 3. The tenant admin logs in with the emailed password → gets `reset_required: true` + a `reset_token` → `POST /api/v1/users/reset-password` to set a real password.
 4. The tenant admin invites more users via `POST /api/v1/users` (`email`, `full_name`, `role`); each follows the same first-login reset flow.

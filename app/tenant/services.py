@@ -1,14 +1,6 @@
-"""Business logic for tenant management.
-
-Deliberately NOT tenant-scoped by tenant_id (a tenant can't scope itself) —
-these functions are reached only through platform-admin-role-gated routes.
-Every other module's services.py takes `tenant_id` as an explicit argument;
-this one is the root of that chain.
-
-Onboarding a tenant also creates that tenant's first ADMIN user, delegating
-to app.user.services.onboard_user for the generated-password + invite-email
-half (cross-module service calls are an established pattern here — see
-app/work_order/services.py).
+"""Tenant management. Not tenant-scoped (a tenant can't scope itself); gated
+on the platform_admin role. `onboard_tenant` also creates the tenant's first
+ADMIN via app.user.services.onboard_user.
 """
 import uuid
 
@@ -34,11 +26,10 @@ _TENANT_FIELDS = (
 
 
 def onboard_tenant(db: Session, payload: TenantCreate) -> tuple[Tenant, User]:
-    """Create the tenant and its first ADMIN user. The admin is emailed a
-    first-time password and must reset it on first login."""
+    """Create the tenant and its first ADMIN (emailed a first-time password)."""
     tenant = Tenant(**{field: getattr(payload, field) for field in _TENANT_FIELDS})
     db.add(tenant)
-    db.flush()  # assign tenant.id without ending the transaction
+    db.flush()  # assign tenant.id
 
     admin = user_services.onboard_user(
         db,

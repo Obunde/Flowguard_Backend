@@ -1,15 +1,7 @@
-"""Seed the single platform-admin account.
+"""Seed the single platform-admin account from PLATFORM_ADMIN_* settings
+(PLATFORM_ADMIN_PASSWORD required, set in .env). Idempotent.
 
-This is the only user not created through an onboarding invite: it has no
-tenant, and it is what a platform operator uses to onboard tenants (each of
-which gets its own ADMIN, who in turn onboards that tenant's users).
-
-Credentials come from settings (PLATFORM_ADMIN_EMAIL / PLATFORM_ADMIN_PASSWORD,
-defaults platform.admin@flow.com / Admin@123). Idempotent: if the account
-already exists it is left untouched.
-
-Usage:
-    python scripts/seed_platform_admin.py
+Usage: python scripts/seed_platform_admin.py
 """
 from __future__ import annotations
 
