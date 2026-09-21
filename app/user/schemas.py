@@ -2,9 +2,16 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
 
 from app.user.models import UserRole
+
+
+def _reject_platform_admin(role: UserRole | None) -> UserRole | None:
+    """Tenant admins manage tenant users only; platform_admin is seed-only."""
+    if role == UserRole.PLATFORM_ADMIN:
+        raise ValueError("platform_admin cannot be assigned through user management")
+    return role
 
 
 class UserBase(BaseModel):
@@ -16,11 +23,15 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     """Invite for a new user — no password; one is generated and emailed."""
 
+    _check_role = field_validator("role")(_reject_platform_admin)
+
 
 class UserUpdate(BaseModel):
     full_name: str | None = None
     role: UserRole | None = None
     is_active: bool | None = None
+
+    _check_role = field_validator("role")(_reject_platform_admin)
 
 
 class UserRead(UserBase):

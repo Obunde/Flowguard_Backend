@@ -4,7 +4,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.core.auth import require_role
+from app.core.auth import CurrentUser, require_role
 from app.core.db import get_db
 from app.core.email import EmailNotConfiguredError
 from app.tenant import services
@@ -12,7 +12,15 @@ from app.tenant.schemas import TenantCreate, TenantOnboardRead, TenantRead, Tena
 
 router = APIRouter(prefix="/api/v1/tenants", tags=["tenants"])
 
-require_platform_admin = require_role("platform_admin")
+
+def require_platform_admin(
+    current_user: CurrentUser = Depends(require_role("platform_admin")),
+) -> CurrentUser:
+    """platform_admin AND tenant-less — a tenant-bound user with this role
+    claim (e.g. one minted before the schema check) is refused."""
+    if current_user.tenant_id is not None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions")
+    return current_user
 
 
 @router.post("", response_model=TenantOnboardRead, status_code=status.HTTP_201_CREATED)
