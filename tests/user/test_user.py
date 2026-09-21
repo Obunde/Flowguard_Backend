@@ -1,11 +1,13 @@
 """Smoke tests for the user module: registration, login, first-login reset,
 tenant scoping."""
+import secrets
+
 from sqlalchemy.orm import Session
 
 from app.user import services
 from app.user.models import UserRole
 from app.user.schemas import UserCreate
-from tests.conftest import auth_headers, make_user
+from tests.conftest import TEST_PASSWORD, auth_headers, make_user
 
 
 def test_router_registered():
@@ -24,7 +26,7 @@ def test_list_users_requires_auth(client):
 def test_login_returns_access_token_for_normal_user(client, tenant_a, db_session):
     user = make_user(db_session, tenant_a)
     response = client.post(
-        "/api/v1/users/login", data={"username": user.email, "password": "password123"}
+        "/api/v1/users/login", data={"username": user.email, "password": TEST_PASSWORD}
     )
     assert response.status_code == 200
     body = response.json()
@@ -43,9 +45,10 @@ def test_login_rejects_wrong_password(client, tenant_a, db_session):
 
 def test_first_login_requires_password_reset(client, tenant_a, db_session):
     user = make_user(db_session, tenant_a, must_reset_password=True)
+    new_password = secrets.token_urlsafe(12)
 
     login = client.post(
-        "/api/v1/users/login", data={"username": user.email, "password": "password123"}
+        "/api/v1/users/login", data={"username": user.email, "password": TEST_PASSWORD}
     )
     assert login.status_code == 200
     body = login.json()
@@ -60,19 +63,19 @@ def test_first_login_requires_password_reset(client, tenant_a, db_session):
 
     reset = client.post(
         "/api/v1/users/reset-password",
-        json={"reset_token": reset_token, "new_password": "BrandNew@123"},
+        json={"reset_token": reset_token, "new_password": new_password},
     )
     assert reset.status_code == 200
     assert reset.json()["access_token"]
 
     # Old temp password no longer authenticates.
     assert client.post(
-        "/api/v1/users/login", data={"username": user.email, "password": "password123"}
+        "/api/v1/users/login", data={"username": user.email, "password": TEST_PASSWORD}
     ).status_code == 401
 
     # New password logs in cleanly, no reset required.
     relogin = client.post(
-        "/api/v1/users/login", data={"username": user.email, "password": "BrandNew@123"}
+        "/api/v1/users/login", data={"username": user.email, "password": new_password}
     )
     assert relogin.status_code == 200
     assert relogin.json()["access_token"]
@@ -117,3 +120,22 @@ def test_service_enforces_tenant_scope(db_session: Session, tenant_a, tenant_b):
 
     users_for_a = services.list_users(db_session, tenant_a.id)
     assert [u.id for u in users_for_a] == [user_a.id]
+
+
+def test_tenant_admin_cannot_assign_platform_admin_role(client, tenant_a, db_session, sent_emails):
+    admin = make_user(db_session, tenant_a, UserRole.ADMIN)
+    headers = auth_headers(admin)
+
+    created = client.post(
+        "/api/v1/users",
+        headers=headers,
+        json={"email": "esc@example.com", "full_name": "Esc", "role": "platform_admin"},
+    )
+    assert created.status_code == 422
+    assert sent_emails == []
+
+    target = make_user(db_session, tenant_a, UserRole.VIEWER)
+    promoted = client.patch(
+        f"/api/v1/users/{target.id}", headers=headers, json={"role": "platform_admin"}
+    )
+    assert promoted.status_code == 422
