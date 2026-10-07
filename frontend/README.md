@@ -14,13 +14,13 @@ docker compose up --build -d
 docker compose ps
 ```
 
-Open http://localhost:3000 and sign in with the default local demo account:
+Open http://localhost:3000 and sign in with one of the seeded demo accounts. Their passwords are set by `SEED_<ROLE>_PASSWORD` in the backend `.env` and are never committed:
 
 ```text
-Admin: admin@flowgard.com / Flowgard-UAT-2026!
-Planner: planner@flowgard.com / Flowgard-UAT-2026!
-Technician: technician@flowgard.com / Flowgard-UAT-2026!
-Viewer: viewer@flowgard.com / Flowgard-UAT-2026!
+Admin: admin@flowgard.com
+Planner: planner@flowgard.com
+Technician: technician@flowgard.com
+Viewer: viewer@flowgard.com
 ```
 
 API documentation is available at http://localhost:8000/docs.

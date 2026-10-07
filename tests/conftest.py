@@ -36,7 +36,7 @@ import app.work_order.models  # noqa: F401,E402
 from app.core.auth import create_access_token, hash_password
 from app.core.base import Base
 from app.core.config import settings
-from app.core.db import get_db
+from app.core.db import connect_args_for, get_db
 from app.main import app as fastapi_app  # noqa: E402
 from app.station.models import Station  # noqa: E402
 from app.tenant.models import Tenant  # noqa: E402
@@ -47,7 +47,7 @@ TEST_DATABASE_URL = settings.test_database_url or settings.database_url
 TEST_PASSWORD = secrets.token_urlsafe(12)
 
 try:
-    engine = create_engine(TEST_DATABASE_URL, future=True)
+    engine = create_engine(TEST_DATABASE_URL, connect_args=connect_args_for(TEST_DATABASE_URL), future=True)
     with engine.connect() as conn:
         pass
 except Exception:

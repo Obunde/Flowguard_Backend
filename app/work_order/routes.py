@@ -16,7 +16,6 @@ from app.work_order.schemas import VerificationWrite, WorkOrderCreate, WorkOrder
 router = APIRouter(prefix="/api/v1/work-orders", tags=["work_orders"])
 
 
-
 @router.post("", response_model=WorkOrderRead, status_code=status.HTTP_201_CREATED)
 def create_work_order(
     payload: WorkOrderCreate,
@@ -57,35 +56,39 @@ def update_work_order(
     tenant_id: uuid.UUID = Depends(get_current_tenant_id),
     current_user: CurrentUser = Depends(require_permission(Permission.MANAGE_WORK_ORDERS)),
 ) -> WorkOrderRead:
-    work_order = services.update_work_order(
-        db, tenant_id, work_order_id, payload, actor=current_user
-    )
+    work_order = services.update_work_order(db, tenant_id, work_order_id, payload, actor=current_user)
     if work_order is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Work order not found")
     return work_order
 
 
 @router.post("/{work_order_id}/outcome", response_model=WorkOrderRead)
-def record_outcome(work_order_id: uuid.UUID, payload: WorkOrderOutcome, db: Session = Depends(get_db), tenant_id: uuid.UUID = Depends(get_current_tenant_id), current_user: CurrentUser = Depends(require_permission(Permission.MANAGE_WORK_ORDERS))) -> WorkOrderRead:
+def record_outcome(
+    work_order_id: uuid.UUID,
+    payload: WorkOrderOutcome,
+    db: Session = Depends(get_db),
+    tenant_id: uuid.UUID = Depends(get_current_tenant_id),
+    current_user: CurrentUser = Depends(require_permission(Permission.MANAGE_WORK_ORDERS)),
+) -> WorkOrderRead:
     return outcomes.record_outcome(db, current_user, work_order_id, payload)
 
 
 @router.post("/{work_order_id}/verification", response_model=WorkOrderRead)
-def verify(work_order_id: uuid.UUID, payload: VerificationWrite, db=Depends(get_db),
-           current=Depends(require_permission(Permission.VERIFY_WORK_ORDERS))):
+def verify(
+    work_order_id: uuid.UUID, payload: VerificationWrite, db=Depends(get_db), current=Depends(require_permission(Permission.VERIFY_WORK_ORDERS))
+):
     return outcomes.verify(db, current, work_order_id, payload)
 
 
 @router.post("/{work_order_id}/follow-up", response_model=WorkOrderRead)
-def follow_up(work_order_id: uuid.UUID, db=Depends(get_db),
-              current=Depends(require_permission(Permission.ASSIGN_WORK_ORDERS))):
+def follow_up(work_order_id: uuid.UUID, db=Depends(get_db), current=Depends(require_permission(Permission.ASSIGN_WORK_ORDERS))):
     return outcomes.follow_up(db, current, work_order_id)
 
 
 @router.get("/{work_order_id}/history")
-def history(work_order_id: uuid.UUID, db=Depends(get_db),
-            current=Depends(require_permission(Permission.VIEW_OPERATIONS))):
+def history(work_order_id: uuid.UUID, db=Depends(get_db), current=Depends(require_permission(Permission.VIEW_OPERATIONS))):
     return outcomes.history(db, current.tenant_id, work_order_id)
+
 
 @router.post(
     "/auto-generate/pumps/{pump_id}",

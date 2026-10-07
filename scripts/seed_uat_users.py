@@ -12,7 +12,12 @@ from app.core.db import SessionLocal
 from app.tenant.models import Tenant
 from app.user.models import User, UserRole
 
-USERS = (("admin", "Flowgard Administrator", UserRole.ADMIN), ("planner", "Maintenance Planner", UserRole.PLANNER), ("technician", "Field Technician", UserRole.TECHNICIAN), ("viewer", "Operations Viewer", UserRole.VIEWER))
+USERS = (
+    ("admin", "Flowgard Administrator", UserRole.ADMIN),
+    ("planner", "Maintenance Planner", UserRole.PLANNER),
+    ("technician", "Field Technician", UserRole.TECHNICIAN),
+    ("viewer", "Operations Viewer", UserRole.VIEWER),
+)
 
 def main():
     with SessionLocal() as db:
@@ -21,15 +26,22 @@ def main():
             raise RuntimeError("Seed the tenant before seeding UAT users")
         for suffix, name, role in USERS:
             email = os.getenv(f"SEED_{suffix.upper()}_EMAIL", f"{suffix}@flowgard.com")
-            password = os.getenv(f"SEED_{suffix.upper()}_PASSWORD", "Flowgard-UAT-2026!")
+            # No default on purpose: demo passwords live in the deploy env, not in git.
+            password = os.getenv(f"SEED_{suffix.upper()}_PASSWORD")
+            if not password:
+                print(f"Skipping {email}: SEED_{suffix.upper()}_PASSWORD is not set")
+                continue
             user = db.scalar(select(User).where(User.email == email))
             if user is None:
-                db.add(User(tenant_id=tenant.id, email=email, full_name=name, role=role, hashed_password=hash_password(password), must_reset_password=False))
+                db.add(User(
+                    tenant_id=tenant.id, email=email, full_name=name, role=role,
+                    hashed_password=hash_password(password), must_reset_password=False,
+                ))
             else:
                 user.tenant_id, user.full_name, user.role, user.is_active = tenant.id, name, role, True
                 user.hashed_password, user.must_reset_password = hash_password(password), False
         db.commit()
-        print("Seeded UAT admin, planner, technician, and viewer accounts")
+        print("Seeded UAT accounts that have a SEED_<ROLE>_PASSWORD configured")
 
 if __name__ == "__main__":
     main()
