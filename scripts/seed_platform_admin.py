@@ -12,10 +12,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from sqlalchemy.orm import Session  # noqa: E402
 
-import app.tenant.models  # noqa: F401,E402  (registers master.tenant for User.tenant_id's FK)
 from app.core.auth import hash_password  # noqa: E402
 from app.core.config import settings  # noqa: E402
 from app.core.db import SessionLocal  # noqa: E402
+from app.tenant.models import Tenant  # noqa: E402,F401
 from app.user.models import User, UserRole  # noqa: E402
 
 

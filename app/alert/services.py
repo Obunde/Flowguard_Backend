@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.alert.models import Alert, AlertSeverity, AlertStatus
 from app.alert.schemas import AlertCreate, AlertUpdate
+from app.audit.services import record_event
 from app.feature_engineering.services import build_feature_vector
 from app.prediction.services import get_latest_prediction
 from app.pump.models import Pump
@@ -48,13 +49,29 @@ def list_alerts(
 
 
 def update_alert(
-    db: Session, tenant_id: uuid.UUID, alert_id: uuid.UUID, payload: AlertUpdate
+    db: Session,
+    tenant_id: uuid.UUID,
+    alert_id: uuid.UUID,
+    payload: AlertUpdate,
+    actor_user_id: uuid.UUID | None = None,
 ) -> Alert | None:
     alert = get_alert(db, tenant_id, alert_id)
     if alert is None:
         return None
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    changes = payload.model_dump(exclude_unset=True)
+    previous = {key: getattr(alert, key) for key in changes}
+    for field, value in changes.items():
         setattr(alert, field, value)
+    record_event(
+        db,
+        tenant_id,
+        actor_user_id,
+        "alert",
+        alert.id,
+        "updated",
+        previous_value={key: str(value) for key, value in previous.items()},
+        new_value={key: str(value) for key, value in changes.items()},
+    )
     db.commit()
     db.refresh(alert)
     return alert

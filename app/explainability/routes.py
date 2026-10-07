@@ -1,10 +1,13 @@
 """Explainability routes. Thin: translate HTTP <-> services, no business logic."""
+
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.auth import require_permission
 from app.core.db import get_db
+from app.core.permissions import Permission
 from app.core.tenancy import get_current_tenant_id
 from app.explainability import services
 from app.explainability.schemas import FeatureAttributionRead
@@ -45,6 +48,7 @@ def trigger_feature_attribution(
     pump_id: uuid.UUID,
     db: Session = Depends(get_db),
     tenant_id: uuid.UUID = Depends(get_current_tenant_id),
+    _=Depends(require_permission(Permission.RUN_MODELS)),
 ) -> FeatureAttributionRead:
     try:
         return services.compute_feature_attribution(db, tenant_id, pump_id)
@@ -53,4 +57,3 @@ def trigger_feature_attribution(
     except FeatureEngineeringError as err:
         # no usable Gold features for this pump yet — the request is valid, the data isn't
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(err)) from err
-
