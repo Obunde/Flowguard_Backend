@@ -12,7 +12,21 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import settings
 
-engine = create_engine(settings.database_url, pool_pre_ping=True, future=True)
+
+def connect_args_for(url: str) -> dict:
+    """Pin Postgres sessions to UTC. Timestamp columns are naive (`timestamp
+    without time zone`) and Postgres converts tz-aware values to the session
+    timezone on write, so a server running in e.g. Africa/Nairobi would shift
+    every stored time by +3h and break freshness checks."""
+    return {"options": "-c timezone=UTC"} if url.startswith("postgresql") else {}
+
+
+engine = create_engine(
+    settings.database_url,
+    connect_args=connect_args_for(settings.database_url),
+    pool_pre_ping=True,
+    future=True,
+)
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 

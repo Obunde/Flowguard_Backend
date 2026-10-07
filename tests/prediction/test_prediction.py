@@ -3,6 +3,7 @@ import uuid
 
 from sqlalchemy.orm import Session
 
+from app.ml.models import get_bundle
 from app.prediction import services
 
 
@@ -41,7 +42,7 @@ def test_run_prediction_success(db_session: Session, station_a):
     assert result.pump_id == pump.id
     assert result.predicted_class in ["normal", "bearing_fault", "impeller_wear", "seal_leak"]
     assert 0.0 <= result.risk_score_7d <= 1.0
-    assert result.model_version == "v1.0.0"
+    assert result.model_version == get_bundle().version
 
     latest = services.get_latest_prediction(db_session, station_a.tenant_id, pump.id)
     assert latest.id == result.id

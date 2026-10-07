@@ -19,7 +19,10 @@ def test_simulator_labels_follow_wear_rules():
     wear = np.array([0.0, 0.5, FAILURE_WEAR_THRESHOLD + 0.01, 1.0])
     out = sample_readings(wear, rng)
     assert out["failure_risk_7_day"].tolist() == [0, 0, 1, 1]
-    assert out["rul_hours"].tolist() == [RUL_HOURS_AT_NEW, RUL_HOURS_AT_NEW // 2, 0, 0]
+    # RUL is linear in wear (1200h new -> 0h fully worn), truncated to whole hours.
+    expected = RUL_HOURS_AT_NEW * (1 - wear)
+    assert np.all(np.abs(out["rul_hours"] - expected) < 1)
+    assert out["rul_hours"][0] == RUL_HOURS_AT_NEW and out["rul_hours"][-1] == 0
 
 
 def test_bundle_metrics_meet_regression_floors():
