@@ -1,69 +1,78 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAppContext } from "@/context/AppContext";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Icon } from "@/components/ui/Icon";
-import { api, download, type WorkOrder } from "@/lib/resources";
+import { api, download, type ManagedUser, type WorkOrder } from "@/lib/resources";
+
+const outcomes = ["confirmed_failure", "degraded", "no_fault_found", "preventive_only", "inconclusive"];
+const conditions = ["serviceable", "restricted", "out_of_service", "unknown"];
 
 export default function WorkOrdersPage() {
   const { pumps, stationName, openPump, showToast, can, user } = useAppContext();
   const [items, setItems] = useState<WorkOrder[]>([]);
+  const [users, setUsers] = useState<ManagedUser[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [verifyId, setVerifyId] = useState<string | null>(null);
+  const [historyId, setHistoryId] = useState<string | null>(null);
+  const [history, setHistory] = useState<Array<{ action: string; actor: string; at: string }>>([]);
   const [note, setNote] = useState("");
+  const [rootCause, setRootCause] = useState("");
+  const [correctiveAction, setCorrectiveAction] = useState("");
+  const [downtime, setDowntime] = useState("");
   const [outcome, setOutcome] = useState("confirmed_failure");
   const [condition, setCondition] = useState("serviceable");
+  const [followUp, setFollowUp] = useState(false);
+  const [followUpDate, setFollowUpDate] = useState("");
+  const [verificationResult, setVerificationResult] = useState("passed");
+  const [verificationNote, setVerificationNote] = useState("");
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createPumpId, setCreatePumpId] = useState("");
+  const [createTitle, setCreateTitle] = useState("");
+  const [createDescription, setCreateDescription] = useState("");
+  const [createPriority, setCreatePriority] = useState("normal");
+  const [createDueAt, setCreateDueAt] = useState("");
 
-  const load = useCallback(async () => {
-    try { setItems(await api<WorkOrder[]>("/work-orders")); setError(null); }
-    catch (e) { setError((e as Error).message); }
-  }, []);
-  useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, [load]);
+  const load = useCallback(async () => { try { setItems(await api<WorkOrder[]>("/work-orders")); setError(null); } catch (e) { setError((e as Error).message); } }, []);
+  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { if (can("assign_work_orders")) void api<ManagedUser[]>("/users").then(setUsers).catch(() => undefined); }, [can]);
+  const technicians = useMemo(() => users.filter((item) => ["technician", "planner"].includes(item.role) && item.is_active), [users]);
 
-  async function assignToMe(item: WorkOrder) {
-    if (!user) return;
-    try {
-      await api(`/work-orders/${item.id}`, { method: "PATCH", body: JSON.stringify({ assigned_to_user_id: user.id }) });
-      showToast(`Assigned ${item.id.slice(0, 8).toUpperCase()} to you`); await load();
-    } catch (e) { showToast((e as Error).message); }
-  }
-
+  async function patch(id: string, body: object, message: string) { try { await api(`/work-orders/${id}`, { method: "PATCH", body: JSON.stringify(body) }); showToast(message); await load(); } catch (e) { showToast((e as Error).message); } }
+  function resetForm() { setActiveId(null); setNote(""); setRootCause(""); setCorrectiveAction(""); setDowntime(""); setFollowUp(false); setFollowUpDate(""); }
   async function complete(item: WorkOrder) {
-    if (item.priority === "high" && !note.trim()) { showToast("Add a completion note for high-priority work"); return; }
-    try {
-      await api(`/work-orders/${item.id}/outcome`, { method: "POST", body: JSON.stringify({ completion_note: note.trim(), outcome, post_maintenance_condition: condition }) });
-      setActiveId(null); setNote(""); showToast("Work order completed"); await load();
-    } catch (e) { showToast((e as Error).message); }
+    if (!note.trim()) { showToast("A completion note is required"); return; }
+    if (followUp && !followUpDate) { showToast("Choose a follow-up date"); return; }
+    try { await api(`/work-orders/${item.id}/outcome`, { method: "POST", body: JSON.stringify({ completion_note: note.trim(), outcome, post_maintenance_condition: condition, root_cause: rootCause || null, corrective_action: correctiveAction || null, downtime_minutes: downtime ? Number(downtime) : null, follow_up_required: followUp, follow_up_due_at: followUp ? new Date(`${followUpDate}T09:00:00`).toISOString() : null }) }); resetForm(); showToast("Outcome recorded; awaiting verification"); await load(); } catch (e) { showToast((e as Error).message); }
   }
-
-  async function exportCsv() {
-    try { await download("/exports/work-orders.csv", "flowgard-work-orders.csv"); showToast("CSV downloaded"); }
-    catch (e) { showToast((e as Error).message); }
+  async function verify(item: WorkOrder) {
+    if (!verificationNote.trim()) { showToast("A verification note is required"); return; }
+    try { await api(`/work-orders/${item.id}/verification`, { method: "POST", body: JSON.stringify({ result: verificationResult, note: verificationNote.trim() }) }); setVerifyId(null); setVerificationNote(""); showToast(verificationResult === "passed" ? "Work verified and closed" : "Verification recorded; follow-up required"); await load(); } catch (e) { showToast((e as Error).message); }
   }
+  async function createFollowUp(item: WorkOrder) { try { await api(`/work-orders/${item.id}/follow-up`, { method: "POST" }); showToast("Follow-up work order created"); await load(); } catch (e) { showToast((e as Error).message); } }
+  async function createManual() { const pump = pumps.find((item) => item.id === createPumpId); if (!pump || !createTitle.trim()) { showToast("Choose a pump and enter a title"); return; } try { await api("/work-orders", { method: "POST", body: JSON.stringify({ pump_id: pump.id, station_id: pump.station_id, title: createTitle.trim(), description: createDescription.trim() || null, priority: createPriority, due_at: createDueAt ? new Date(`T09:00:00`).toISOString() : null, source: "manual" }) }); setCreateOpen(false); setCreateTitle(""); setCreateDescription(""); setCreateDueAt(""); showToast("Work order raised"); await load(); } catch (e) { showToast((e as Error).message); } }
+  async function generateForPump(pumpId: string) { try { await api(`/work-orders/auto-generate/pumps/`, { method: "POST" }); showToast("Predictive work order raised"); await load(); } catch (e) { showToast((e as Error).message); } }
+  async function generateSchedule() { try { const result = await api<{ message: string }>("/maintenance-schedule/auto-generate", { method: "POST" }); showToast(result.message); } catch (e) { showToast((e as Error).message); } }
+  async function showHistory(id: string) { try { setHistory(await api<Array<{ action: string; actor: string; at: string }>>(`/work-orders/${id}/history`)); setHistoryId(id); } catch (e) { showToast((e as Error).message); } }
+  async function exportCsv() { try { await download("/exports/work-orders.csv", "flowgard-work-orders.csv"); showToast("CSV downloaded"); } catch (e) { showToast((e as Error).message); } }
 
   return <div className="animate-fade-in-up">
-    <header className="mb-6 flex items-start justify-between gap-4">
-      <div><h1>Work orders</h1><p className="mt-1 text-sm text-muted-foreground">Maintenance actions linked to current operational risk.</p></div>
-      <Button onClick={exportCsv}><Icon name="download" className="mr-2 h-4 w-4" />Export CSV</Button>
-    </header>
+    <header className="mb-6 flex items-start justify-between gap-4"><div><h1>Work orders</h1><p className="mt-1 text-sm text-muted-foreground">Raise, assign, schedule, execute, verify, and audit maintenance work.</p></div><div className="flex flex-wrap gap-2">{can("manage_work_orders") && <Button onClick={() => setCreateOpen(true)}>Raise work order</Button>}{can("manage_schedule") && <Button variant="ghost" onClick={() => void generateSchedule()}>Schedule open work</Button>}<Button onClick={exportCsv}><Icon name="download" className="mr-2 h-4 w-4" />Export CSV</Button></div></header>
+    {createOpen && <Card className="mb-4"><div className="flex items-center justify-between"><p className="font-semibold">Raise manual work order</p><Button size="sm" variant="ghost" onClick={() => setCreateOpen(false)}>Close</Button></div><div className="mt-3 grid gap-3 md:grid-cols-2"><label className="text-xs font-semibold">Pump<select value={createPumpId} onChange={e => setCreatePumpId(e.target.value)} className="mt-1 w-full rounded border border-border bg-background px-2 py-2 font-normal"><option value="">Choose pump</option>{pumps.map(p => <option key={p.id} value={p.id}>{p.pump_id} · {stationName(p.station_code)}</option>)}</select></label><label className="text-xs font-semibold">Title<input value={createTitle} onChange={e => setCreateTitle(e.target.value)} className="mt-1 w-full rounded border border-border bg-background px-2 py-2 font-normal" placeholder="e.g. Inspect seal assembly" /></label><label className="text-xs font-semibold">Priority<select value={createPriority} onChange={e => setCreatePriority(e.target.value)} className="mt-1 w-full rounded border border-border bg-background px-2 py-2 font-normal"><option>low</option><option>normal</option><option>high</option><option>critical</option></select></label><label className="text-xs font-semibold">Due date<input type="date" value={createDueAt} onChange={e => setCreateDueAt(e.target.value)} className="mt-1 w-full rounded border border-border bg-background px-2 py-2 font-normal" /></label><label className="text-xs font-semibold md:col-span-2">Description<textarea value={createDescription} onChange={e => setCreateDescription(e.target.value)} rows={2} className="mt-1 w-full rounded border border-border bg-background px-2 py-2 font-normal" /></label><div><Button onClick={() => void createManual()}>Create work order</Button></div></div></Card>}
+    <Card className="mb-4 bg-muted/30"><p className="text-sm font-semibold">Lifecycle</p><p className="mt-1 text-xs text-muted-foreground">Risk signal → planner assignment → scheduled date → technician outcome → supervisor verification → close or follow-up.</p></Card>
     {error && <p className="mb-3 text-sm text-red">Showing the last available work orders: {error}</p>}
-    <Card padded={false}><div className="overflow-x-auto p-5"><table className="w-full min-w-[980px] border-collapse">
-      <thead><tr>{["Reference", "Pump", "Station", "Issue", "Priority", "Due", "Status", "Owner", "Action"].map(h => <th key={h} className="border-b border-border px-2 py-2 text-left text-muted-foreground">{h}</th>)}</tr></thead>
-      <tbody>{items.map(item => { const pump = pumps.find(p => p.id === item.pump_id); const terminal = item.status === "completed" || item.status === "cancelled"; return <tr key={item.id} className="border-b border-border/60 hover:bg-muted/40">
-        <td className="px-2 py-3 font-mono text-xs">{`WO-${item.id.slice(0, 8).toUpperCase()}`}</td>
-        <td className="px-2 py-3 font-semibold"><button onClick={() => pump && openPump(pump.pump_id)}>{pump?.pump_id ?? "Unknown pump"}</button></td>
-        <td className="px-2 py-3">{pump ? stationName(pump.station_code) : "Unknown station"}</td>
-        <td className="max-w-xs px-2 py-3">{item.title}<div className="mt-1 text-xs text-muted-foreground">{item.source_prediction_id || item.source_alert_id ? "Linked to predictive evidence" : "Manual maintenance"}</div></td>
-        <td className="px-2 py-3"><Badge tone={item.priority === "high" ? "critical" : "watch"}>{item.priority}</Badge></td>
-        <td className="px-2 py-3">{item.due_at ? new Date(item.due_at).toLocaleDateString() : "Unscheduled"}</td>
-        <td className="px-2 py-3"><Badge tone={terminal ? "healthy" : "info"}>{item.status.replace("_", " ")}</Badge></td>
-        <td className="px-2 py-3 text-xs">{item.assigned_to_user_id ? (item.assigned_to_user_id === user?.id ? "You" : "Assigned") : "Unassigned"}</td>
-        <td className="px-2 py-3">{!terminal && can("manage_work_orders") ? <div className="flex items-center gap-2"><Button size="sm" variant="ghost" onClick={() => assignToMe(item)} disabled={item.assigned_to_user_id === user?.id}>Assign to me</Button><Button size="sm" onClick={() => { setActiveId(activeId === item.id ? null : item.id); setNote(item.completion_note ?? ""); }}>{activeId === item.id ? "Cancel" : "Complete"}</Button></div> : "—"}</td>
-        {activeId === item.id && <td colSpan={9} className="bg-muted/30 px-2 py-3"><div className="flex items-end gap-3"><label className="flex-1 text-xs font-semibold text-muted-foreground">Completion note{item.priority === "high" ? " (required)" : ""}<textarea value={note} onChange={e => setNote(e.target.value)} rows={2} className="mt-1 block w-full rounded-md border border-border bg-background px-3 py-2 text-sm font-normal text-foreground outline-none focus:border-primary" placeholder="What was inspected or repaired?" /></label><Button onClick={() => complete(item)}>Confirm completion</Button></div></td>}
-      </tr>; })}</tbody>
-    </table>{items.length === 0 && <p className="py-10 text-center text-sm text-muted-foreground">No work orders.</p>}</div></Card>
+    <Card padded={false}><div className="overflow-x-auto p-5"><table className="w-full min-w-[1180px] border-collapse"><thead><tr>{["Reference", "Pump", "Station", "Issue", "Priority", "Due", "Status", "Assigned", "Verification", "Actions"].map(h => <th key={h} className="border-b border-border px-2 py-2 text-left text-muted-foreground">{h}</th>)}</tr></thead><tbody>{items.map(item => { const pump = pumps.find(p => p.id === item.pump_id); const terminal = item.status === "cancelled" || (item.status === "completed" && !!item.verified_at); const assignee = users.find((u) => u.id === item.assigned_to_user_id); return <><tr key={item.id} className="border-b border-border/60 align-top hover:bg-muted/40">
+      <td className="px-2 py-3 font-mono text-xs">WO-{item.id.slice(0, 8).toUpperCase()}</td><td className="px-2 py-3 font-semibold"><button onClick={() => pump && openPump(pump.pump_id)}>{pump?.pump_id ?? "Unknown"}</button></td><td className="px-2 py-3">{pump ? stationName(pump.station_code) : "Unknown"}</td><td className="max-w-xs px-2 py-3">{item.title}<div className="mt-1 text-xs text-muted-foreground">{item.source_prediction_id || item.source_alert_id ? "Predictive evidence" : "Manual"}</div></td><td className="px-2 py-3"><Badge tone={item.priority === "high" || item.priority === "critical" ? "critical" : "watch"}>{item.priority}</Badge></td><td className="px-2 py-3">{item.due_at ? new Date(item.due_at).toLocaleDateString() : "Unscheduled"}</td><td className="px-2 py-3"><Badge tone={terminal ? "healthy" : item.status === "completed" ? "watch" : "info"}>{item.status.replace("_", " ")}</Badge></td>
+      <td className="px-2 py-3 text-xs">{can("assign_work_orders") ? <select aria-label="Assign work order" value={item.assigned_to_user_id ?? ""} onChange={(e) => void patch(item.id, { assigned_to_user_id: e.target.value || null }, "Assignment updated")} className="rounded border border-border bg-background px-2 py-1"><option value="">Unassigned</option>{technicians.map((u) => <option key={u.id} value={u.id}>{u.full_name} ({u.role})</option>)}</select> : assignee?.full_name ?? (item.assigned_to_user_id ? "Assigned" : "Unassigned")}</td>
+      <td className="px-2 py-3 text-xs">{item.verified_at ? <Badge tone={item.verification_result === "passed" ? "healthy" : "critical"}>{item.verification_result}</Badge> : item.status === "completed" ? "Awaiting verification" : "Not ready"}</td>
+      <td className="px-2 py-3"><div className="flex flex-wrap gap-1">{!terminal && item.status !== "completed" && can("manage_work_orders") && <>{item.assigned_to_user_id === user?.id && item.status === "open" && <Button size="sm" variant="ghost" onClick={() => void patch(item.id, { status: "in_progress" }, "Work started")}>Start</Button>}<Button size="sm" onClick={() => { setActiveId(activeId === item.id ? null : item.id); }}>{activeId === item.id ? "Cancel" : "Record outcome"}</Button></>}{item.status === "completed" && can("verify_work_orders") && !item.verified_at && <Button size="sm" onClick={() => setVerifyId(verifyId === item.id ? null : item.id)}>Verify</Button>}{item.follow_up_required && item.verified_at && can("assign_work_orders") && <Button size="sm" variant="ghost" onClick={() => void createFollowUp(item)}>Create follow-up</Button>}<Button size="sm" variant="ghost" onClick={() => void showHistory(item.id)}>History</Button>{pump && can("manage_work_orders") && <Button size="sm" variant="ghost" onClick={() => pump.id && void generateForPump(pump.id)}>Raise predictive</Button>}</div></td></tr>
+      {activeId === item.id && <tr><td colSpan={10} className="bg-muted/30 px-2 py-4"><div className="grid gap-3 md:grid-cols-4"><label className="text-xs font-semibold">Outcome<select value={outcome} onChange={e => setOutcome(e.target.value)} className="mt-1 w-full rounded border border-border bg-background px-2 py-2 font-normal">{outcomes.map(v => <option key={v}>{v}</option>)}</select></label><label className="text-xs font-semibold">Post-maintenance condition<select value={condition} onChange={e => setCondition(e.target.value)} className="mt-1 w-full rounded border border-border bg-background px-2 py-2 font-normal">{conditions.map(v => <option key={v}>{v}</option>)}</select></label><label className="text-xs font-semibold">Downtime minutes<input type="number" min="0" value={downtime} onChange={e => setDowntime(e.target.value)} className="mt-1 w-full rounded border border-border bg-background px-2 py-2 font-normal" /></label><label className="text-xs font-semibold">Follow-up date<input type="date" disabled={!followUp} value={followUpDate} onChange={e => setFollowUpDate(e.target.value)} className="mt-1 w-full rounded border border-border bg-background px-2 py-2 font-normal" /></label><label className="text-xs font-semibold md:col-span-2">Completion note<textarea required value={note} onChange={e => setNote(e.target.value)} rows={2} className="mt-1 w-full rounded border border-border bg-background px-2 py-2 font-normal" /></label><label className="text-xs font-semibold">Root cause<input value={rootCause} onChange={e => setRootCause(e.target.value)} className="mt-1 w-full rounded border border-border bg-background px-2 py-2 font-normal" /></label><label className="text-xs font-semibold">Corrective action<input value={correctiveAction} onChange={e => setCorrectiveAction(e.target.value)} className="mt-1 w-full rounded border border-border bg-background px-2 py-2 font-normal" /></label><label className="flex items-center gap-2 text-xs font-semibold"><input type="checkbox" checked={followUp} onChange={e => setFollowUp(e.target.checked)} />Requires follow-up</label><div><Button onClick={() => void complete(item)}>Submit outcome</Button></div></div></td></tr>}
+      {verifyId === item.id && <tr><td colSpan={10} className="bg-green-50 px-2 py-4"><div className="flex flex-wrap items-end gap-3"><label className="text-xs font-semibold">Verification result<select value={verificationResult} onChange={e => setVerificationResult(e.target.value)} className="mt-1 rounded border border-border bg-background px-2 py-2 font-normal"><option value="passed">Passed</option><option value="failed">Failed</option><option value="inconclusive">Inconclusive</option></select></label><label className="min-w-[320px] flex-1 text-xs font-semibold">Verification note<textarea value={verificationNote} onChange={e => setVerificationNote(e.target.value)} rows={2} className="mt-1 w-full rounded border border-border bg-background px-2 py-2 font-normal" /></label><Button onClick={() => void verify(item)}>Submit verification</Button></div></td></tr>}
+      {historyId === item.id && <tr><td colSpan={10} className="bg-muted/20 px-2 py-3"><p className="mb-2 text-xs font-semibold">Audit history</p>{history.map((event, i) => <p key={i} className="text-xs text-muted-foreground">{new Date(event.at).toLocaleString()} · {event.action} · {event.actor}</p>)}</td></tr>}
+    </> ; })}</tbody></table>{items.length === 0 && <p className="py-10 text-center text-sm text-muted-foreground">No work orders.</p>}</div></Card>
   </div>;
 }

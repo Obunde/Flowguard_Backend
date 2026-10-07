@@ -33,6 +33,9 @@ services:
       TEST_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-flowgard}:${POSTGRES_PASSWORD:-flowgard}@db:5432/${POSTGRES_DB:-flowgard}_test
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev-secret-change-me}
       CORS_ALLOW_ORIGINS: http://localhost:3000,http://localhost:8501
+      PLATFORM_ADMIN_EMAIL: ${PLATFORM_ADMIN_EMAIL:-platform.admin@flow.com}
+      PLATFORM_ADMIN_PASSWORD: ${PLATFORM_ADMIN_PASSWORD:?set PLATFORM_ADMIN_PASSWORD in .env}
+      PLATFORM_ADMIN_FULL_NAME: ${PLATFORM_ADMIN_FULL_NAME:-Platform Administrator}
     depends_on:
       db:
         condition: service_healthy
@@ -64,7 +67,7 @@ services:
 
   seed:
     build: .
-    command: ["sh", "-c", "python scripts/seed_platform_admin.py && python scripts/seed_kpc_tenant.py"]
+    command: ["sh", "-c", "python scripts/seed_platform_admin.py && python scripts/seed_kpc_tenant.py && python scripts/seed_uat_users.py && python scripts/seed_uat_data.py"]
     environment: *app_env
     depends_on:
       db:

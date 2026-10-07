@@ -4,6 +4,7 @@ Imports the same `settings` and `Base` the app uses (app/core/config.py,
 app/core/base.py) — never a second hardcoded connection string, and
 autogenerate diffs against the exact same metadata the app runs on.
 """
+
 from logging.config import fileConfig
 
 from alembic import context
@@ -14,11 +15,14 @@ from sqlalchemy import engine_from_config, pool, text
 # Import every module's models so they register on Base.metadata before
 # autogenerate runs. Add a line here whenever a new module gets models.py.
 import app.alert.models  # noqa: F401,E402
+import app.audit.models  # noqa: F401,E402
+import app.auth_session.models  # noqa: F401,E402
 import app.etl.bronze.models  # noqa: F401,E402
 import app.etl.gold.models  # noqa: F401,E402
 import app.etl.silver.models  # noqa: F401,E402
 import app.explainability.models  # noqa: F401,E402
 import app.flowgard_engine.models  # noqa: F401,E402
+import app.incidents.models  # noqa: F401,E402
 import app.maintenance_schedule.models  # noqa: F401,E402
 import app.model_metrics.models  # noqa: F401,E402
 import app.prediction.models  # noqa: F401,E402
@@ -39,7 +43,12 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 # FIX: Escaping the '%' sign in the database password so Alembic doesn't crash
-safe_db_url = str(settings.database_url).replace("%", "%%")
+db_url = str(settings.database_url)
+if db_url.startswith("postgresql://"):
+    db_url = db_url.replace("postgresql://", "postgresql+psycopg://", 1)
+elif db_url.startswith("postgres://"):
+    db_url = db_url.replace("postgres://", "postgresql+psycopg://", 1)
+safe_db_url = db_url.replace("%", "%%")
 config.set_main_option("sqlalchemy.url", safe_db_url)
 
 
@@ -77,6 +86,8 @@ def run_migrations_online() -> None:
         connection.execute(text("CREATE SCHEMA IF NOT EXISTS bronze;"))
         connection.execute(text("CREATE SCHEMA IF NOT EXISTS silver;"))
         connection.execute(text("CREATE SCHEMA IF NOT EXISTS gold;"))
+        # Older migrations use unqualified master-table references.
+        connection.execute(text("SET search_path TO master, public;"))
         connection.commit()
 
         context.configure(

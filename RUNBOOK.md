@@ -207,7 +207,7 @@ The Flowguard platform enforces strict multi-tenant scoping (`tenant_id`) and do
 | `feature_engineering` | Track A | Rolling-window feature vector construction & Gold-layer flattening | Internal service |
 | `flowgard_engine` | Track B | Physics-based pressure residual model & Health Deviation Index (HDI) computation | `/api/v1/flowgard-engine` |
 | `prediction` | Track B | XGBoost 7-day failure risk score & failure mode classification | `/api/v1/predictions` |
-| `rul` | Track A | Remaining Useful Life (RUL) regression in days/hours with MC Dropout confidence bounds | `/api/v1/rul` |
+| `rul` | Track A | Remaining Useful Life (RUL) regression in days/hours with quantile-regression (90%) confidence bounds | `/api/v1/rul` |
 | `explainability` | Track B | SHAP sub-assembly feature attributions (bearing, impeller, seal, motor) | `/api/v1/explainability` |
 | `model_metrics` | Track A | Model evaluation metrics, accuracy, F1-score, confusion matrix tracking | `/api/v1/model-metrics` |
 | `alert` | Track A | Dynamic threshold evaluation, real-time risk alert triggers & notifications | `/api/v1/alerts` |

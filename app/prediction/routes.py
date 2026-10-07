@@ -1,11 +1,15 @@
 """Prediction routes. Thin: translate HTTP <-> services, no business logic."""
+
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.auth import require_permission
 from app.core.db import get_db
+from app.core.permissions import Permission
 from app.core.tenancy import get_current_tenant_id
+from app.feature_engineering.services import FeatureEngineeringError
 from app.prediction import services
 from app.prediction.schemas import PredictionResultRead
 
@@ -42,9 +46,12 @@ def trigger_prediction(
     pump_id: uuid.UUID,
     db: Session = Depends(get_db),
     tenant_id: uuid.UUID = Depends(get_current_tenant_id),
+    _=Depends(require_permission(Permission.RUN_MODELS)),
 ) -> PredictionResultRead:
     try:
         return services.run_prediction(db, tenant_id, pump_id)
     except ValueError as err:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err)) from err
-
+    except FeatureEngineeringError as err:
+        # no usable Gold features for this pump yet — the request is valid, the data isn't
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(err)) from err

@@ -29,6 +29,7 @@ from app.core.db import SessionLocal  # noqa: E402
 from app.pump.models import Pump, PumpStatus  # noqa: E402
 from app.station.models import Station  # noqa: E402
 from app.tenant.models import Tenant  # noqa: E402
+from app.user.models import User  # noqa: E402,F401  (registers master.user for FKs)
 
 KPC_TENANT = {
     "name": "Kenya Pipeline Company",

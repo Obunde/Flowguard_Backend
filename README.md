@@ -31,9 +31,9 @@ The team placed first in Hackathon 1 by building a revenue reconciliation pipeli
 | Member | Role | Key Responsibilities |
 | :--- | :--- | :--- |
 | **Silas Kibet** | Data Engineering Lead | Medallion pipeline (Bronze/Silver/Gold), synthetic data generation, ETL |
-| **Brian Kioko** | Modelling & Machine Learning Lead | Feature engineering, HDI physics engine, 7-day risk classifier, RUL regression |
+| **Brian Kioko** | Modelling & Machine Learning Lead | HDI physics engine, 7-day risk classifier, model training |
 | **Ingrid Miriam** | Dashboard & Visualisation Lead | Dashboarding, stakeholder views, metric visualizations |
-| **Eugene Obunde** | Storytelling & ROI Lead | Executive narrative, financial ROI, business case documentation |
+| **Eugene Obunde** | Backend Architecture Lead | System architecture, database design, core/auth & multi-tenancy, RBAC, feature engineering, RUL regression, alerting; executive narrative & ROI |
 | **Lameck Mugo** | QA & Documentation Lead | Testing, UAT notes, deployment readiness, security verification |
 
 ---
@@ -50,7 +50,7 @@ Flowguard transitions KPC to continuous, condition-driven risk mitigation:
 - **Continuous Telemetry Ingestion:** Sub-minute streaming of pump vibration, temperatures, suction/discharge pressures, and electrical metrics.
 - **Physics-Informed Anomaly Detection:** Real-time calculation of **Pressure Residuals** against manufacturer-rated head curves to derive a **Health Deviation Index (HDI)**.
 - **7-Day Risk Classification:** ML models evaluate progressive mechanical wear to predict failures within a 7-day window and classify fault modes (`bearing_fault`, `impeller_wear`, `seal_leak`, `normal`).
-- **Remaining Useful Life (RUL):** Regression models estimate remaining operational hours with Monte Carlo Dropout confidence interval bounds.
+- **Remaining Useful Life (RUL):** XGBoost quantile regressors (5th/50th/95th percentiles) estimate remaining operational life with a 90% confidence interval.
 - **Explainability (XAI):** SHAP feature attributions isolate the specific sub-assembly (Bearing, Impeller, Seal, Motor) driving risk.
 - **Closed-Loop Action:** Risk scores $\ge 70\%$ trigger automated condition-based work orders, while scheduled maintenance across the fleet is prioritized dynamically by RUL.
 
@@ -83,7 +83,7 @@ flowchart TB
         FE["Feature Engineering Layer\n(Model-Ready Feature Vectors)"]
         HDI["Flowguard Physics Engine\n(Pressure Residuals & HDI)"]
         ML["7-Day Risk Classifier\n(Fault Mode Categorization)"]
-        RUL["RUL Regression Engine\n(MC Dropout Confidence Bounds)"]
+        RUL["RUL Regression Engine\n(Quantile Confidence Bounds)"]
         SHAP["SHAP Explainability Engine\n(Sub-component Risk Allocation)"]
     end
 
@@ -148,7 +148,7 @@ app/
 ├── feature_engineering/    # Gold layer & HDI transformation into model-ready feature vectors
 ├── flowgard_engine/        # Pressure residual calculation & Health Deviation Index (HDI)
 ├── prediction/             # 7-day failure risk classifier & fault mode categorization
-├── rul/                    # Remaining Useful Life regression & MC Dropout confidence bounds
+├── rul/                    # Remaining Useful Life quantile regression & 90% confidence bounds
 ├── explainability/         # SHAP feature attributions & component risk allocation
 ├── alert/                  # Threshold alerts & operational escalation
 ├── work_order/             # Condition-based maintenance work orders & auto-generation
@@ -211,7 +211,7 @@ flowchart TD
     
     HighPri & NormPri --> AutoWO[Auto-Generate Work Order\nSource: ALERT]
     
-    RULCalc[Calculate RUL & MC Dropout Bounds] --> RankSchedule[Rank Maintenance Schedule by RUL]
+    RULCalc[Calculate RUL & Quantile Bounds] --> RankSchedule[Rank Maintenance Schedule by RUL]
     AutoWO --> RankSchedule
     RankSchedule --> Dispatch[Dispatch Field Engineer]
 ```

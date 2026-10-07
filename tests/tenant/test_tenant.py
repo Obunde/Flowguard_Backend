@@ -102,3 +102,17 @@ def test_tenant_bound_platform_admin_claim_is_rejected(client, tenant_a, db_sess
     rogue = make_user(db_session, tenant_a, UserRole.PLATFORM_ADMIN)
     response = client.get("/api/v1/tenants", headers=auth_headers(rogue))
     assert response.status_code == 403
+
+
+def test_tenant_admin_manages_only_own_tenant(client, db_session, tenant_a, tenant_b):
+    admin = make_user(db_session, tenant_a, role=UserRole.ADMIN)
+    headers = auth_headers(admin)
+    assert client.get(f"/api/v1/tenants/{tenant_a.id}", headers=headers).status_code == 200
+    assert client.get(f"/api/v1/tenants/{tenant_b.id}", headers=headers).status_code == 403
+    assert client.get("/api/v1/tenants", headers=headers).status_code == 403
+
+
+def test_non_admin_cannot_read_tenant_settings(client, db_session, tenant_a):
+    viewer = make_user(db_session, tenant_a, role=UserRole.VIEWER)
+    response = client.get(f"/api/v1/tenants/{tenant_a.id}", headers=auth_headers(viewer))
+    assert response.status_code == 403
