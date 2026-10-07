@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.maintenance_schedule.models import ScheduledMaintenance, ScheduleStatus
 from app.maintenance_schedule.schemas import ScheduledMaintenanceCreate, ScheduledMaintenanceUpdate
 from app.rul.services import get_latest_rul_estimate, run_rul_estimate
+from app.work_order.models import WorkOrder
 
 
 def create_scheduled_maintenance(
@@ -54,7 +55,13 @@ def update_scheduled_maintenance(
     entry = get_scheduled_maintenance(db, tenant_id, entry_id)
     if entry is None:
         return None
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    changes = payload.model_dump(exclude_unset=True)
+    wo_id = changes.get("work_order_id")
+    if wo_id is not None and db.scalar(
+        select(WorkOrder.id).where(WorkOrder.id == wo_id, WorkOrder.tenant_id == tenant_id)
+    ) is None:
+        raise ValueError(f"Work order {wo_id} not found in this tenant")
+    for field, value in changes.items():
         setattr(entry, field, value)
     db.commit()
     db.refresh(entry)

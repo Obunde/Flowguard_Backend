@@ -59,7 +59,10 @@ def update_scheduled_maintenance(
     db: Session = Depends(get_db),
     tenant_id: uuid.UUID = Depends(get_current_tenant_id),
 ) -> ScheduledMaintenanceRead:
-    entry = services.update_scheduled_maintenance(db, tenant_id, entry_id, payload)
+    try:
+        entry = services.update_scheduled_maintenance(db, tenant_id, entry_id, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     if entry is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Schedule entry not found"

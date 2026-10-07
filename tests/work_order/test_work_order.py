@@ -120,3 +120,28 @@ def test_work_order_not_found(client, headers_a):
         headers=headers_a,
     )
     assert patch_res.status_code == 404
+
+
+def test_update_rejects_assignee_from_other_tenant(client, headers_a, station_a, db_session, tenant_b):
+    from app.pump.models import Pump, PumpStatus
+    from app.user.models import UserRole
+    from app.work_order.models import WorkOrder, WorkOrderSource, WorkOrderStatus
+    from tests.conftest import make_user
+
+    pump = Pump(tenant_id=station_a.tenant_id, station_id=station_a.id, tag_number="PS1-X",
+                status=PumpStatus.OPERATIONAL)
+    db_session.add(pump)
+    db_session.commit()
+    wo = WorkOrder(tenant_id=station_a.tenant_id, pump_id=pump.id, station_id=station_a.id,
+                   title="t", status=WorkOrderStatus.OPEN, source=WorkOrderSource.MANUAL, priority="low")
+    db_session.add(wo)
+    db_session.commit()
+    outsider = make_user(db_session, tenant_b, UserRole.TECHNICIAN)
+
+    resp = client.patch(f"/api/v1/work-orders/{wo.id}", headers=headers_a,
+                        json={"assigned_to_user_id": str(outsider.id)})
+    assert resp.status_code == 422
+
+    missing = client.patch(f"/api/v1/work-orders/{wo.id}", headers=headers_a,
+                           json={"assigned_to_user_id": "00000000-0000-0000-0000-000000000000"})
+    assert missing.status_code == 422

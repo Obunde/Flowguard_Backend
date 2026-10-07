@@ -1,5 +1,5 @@
-"""Remaining Useful Life regression output, with MC Dropout confidence
-intervals.
+"""Remaining Useful Life regression output, with quantile-regression
+confidence intervals.
 """
 import uuid
 from datetime import datetime

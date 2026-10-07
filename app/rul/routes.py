@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.core.db import get_db
 from app.core.tenancy import get_current_tenant_id
+from app.feature_engineering.services import FeatureEngineeringError
 from app.rul import services
 from app.rul.schemas import RulEstimateRead
 
@@ -43,3 +44,6 @@ def trigger_rul_estimate(
         return services.run_rul_estimate(db, tenant_id, pump_id)
     except ValueError as err:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err)) from err
+    except FeatureEngineeringError as err:
+        # no usable Gold features for this pump yet — the request is valid, the data isn't
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(err)) from err

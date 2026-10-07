@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.prediction.services import get_latest_prediction, run_prediction
 from app.pump.models import Pump
+from app.user.models import User
 from app.work_order.models import WorkOrder, WorkOrderSource, WorkOrderStatus
 from app.work_order.schemas import WorkOrderCreate, WorkOrderUpdate
 
@@ -55,7 +56,13 @@ def update_work_order(
     work_order = get_work_order(db, tenant_id, work_order_id)
     if work_order is None:
         return None
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    changes = payload.model_dump(exclude_unset=True)
+    assignee = changes.get("assigned_to_user_id")
+    if assignee is not None and db.scalar(
+        select(User.id).where(User.id == assignee, User.tenant_id == tenant_id)
+    ) is None:
+        raise ValueError(f"User {assignee} not found in this tenant")
+    for field, value in changes.items():
         setattr(work_order, field, value)
     db.commit()
     db.refresh(work_order)

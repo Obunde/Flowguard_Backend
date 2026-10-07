@@ -8,6 +8,7 @@ from app.core.db import get_db
 from app.core.tenancy import get_current_tenant_id
 from app.explainability import services
 from app.explainability.schemas import FeatureAttributionRead
+from app.feature_engineering.services import FeatureEngineeringError
 
 router = APIRouter(prefix="/api/v1/explainability", tags=["explainability"])
 
@@ -49,4 +50,7 @@ def trigger_feature_attribution(
         return services.compute_feature_attribution(db, tenant_id, pump_id)
     except ValueError as err:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(err)) from err
+    except FeatureEngineeringError as err:
+        # no usable Gold features for this pump yet — the request is valid, the data isn't
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(err)) from err
 

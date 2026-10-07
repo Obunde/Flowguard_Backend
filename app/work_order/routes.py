@@ -53,7 +53,10 @@ def update_work_order(
     db: Session = Depends(get_db),
     tenant_id: uuid.UUID = Depends(get_current_tenant_id),
 ) -> WorkOrderRead:
-    work_order = services.update_work_order(db, tenant_id, work_order_id, payload)
+    try:
+        work_order = services.update_work_order(db, tenant_id, work_order_id, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     if work_order is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Work order not found")
     return work_order
