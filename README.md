@@ -17,7 +17,7 @@ You can log in to the dashboard using any of the following role-based test accou
 - `technician@flowgard.com` (Field Technician)
 - `viewer@flowgard.com` (Read-only Viewer)
 
-**Password for all accounts:** `Flowgard-UAT-2026!`
+Passwords for these accounts are shared with assessors separately and are never committed. Locally, set `SEED_<ROLE>_PASSWORD` in `.env` before running the seed profile.
 
 ---
 

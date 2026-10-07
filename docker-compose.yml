@@ -11,7 +11,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-flowgard}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-flowgard}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ${POSTGRES_DB:-flowgard}
     volumes:
       - flowgard_pgdata:/var/lib/postgresql/data
@@ -29,9 +29,9 @@ services:
     build: .
     command: ["alembic", "upgrade", "head"]
     environment: &app_env
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-flowgard}:${POSTGRES_PASSWORD:-flowgard}@db:5432/${POSTGRES_DB:-flowgard}
-      TEST_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-flowgard}:${POSTGRES_PASSWORD:-flowgard}@db:5432/${POSTGRES_DB:-flowgard}_test
-      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev-secret-change-me}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-flowgard}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-flowgard}
+      TEST_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-flowgard}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-flowgard}_test
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?set JWT_SECRET_KEY in .env}
       CORS_ALLOW_ORIGINS: http://localhost:3000,http://localhost:8501
       PLATFORM_ADMIN_EMAIL: ${PLATFORM_ADMIN_EMAIL:-platform.admin@flow.com}
       PLATFORM_ADMIN_PASSWORD: ${PLATFORM_ADMIN_PASSWORD:?set PLATFORM_ADMIN_PASSWORD in .env}
@@ -68,7 +68,13 @@ services:
   seed:
     build: .
     command: ["sh", "-c", "python scripts/seed_platform_admin.py && python scripts/seed_kpc_tenant.py && python scripts/seed_uat_users.py && python scripts/seed_uat_data.py"]
-    environment: *app_env
+    environment:
+      <<: *app_env
+      # Demo account passwords come from .env only; an unset one is skipped.
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
+      SEED_PLANNER_PASSWORD: ${SEED_PLANNER_PASSWORD:-}
+      SEED_TECHNICIAN_PASSWORD: ${SEED_TECHNICIAN_PASSWORD:-}
+      SEED_VIEWER_PASSWORD: ${SEED_VIEWER_PASSWORD:-}
     depends_on:
       db:
         condition: service_healthy

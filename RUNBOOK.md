@@ -122,7 +122,7 @@ docker compose --profile seed run --rm seed
    streamlit run streamlit_app/app.py --server.port 8501
    ```
    - **Dashboard Access:** `http://localhost:8501`
-   - Default credentials for sign-in: `admin@kpc.co.ke` / `password123`
+   - Sign in with an account seeded from your `.env` (see `SEED_<ROLE>_PASSWORD`).
 
 ---
 

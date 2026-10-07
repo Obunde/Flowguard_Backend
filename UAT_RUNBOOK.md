@@ -11,7 +11,7 @@ The hosted UAT consists of a Render FastAPI backend, Render PostgreSQL database,
 - `technician@flowgard.com` — assigned maintenance execution
 - `viewer@flowgard.com` — read-only operations
 
-Password for each: `Flowgard-UAT-2026!`
+Passwords come from `SEED_<ROLE>_PASSWORD` in the deploy environment / `.env`; they are never committed.
 
 ## Acceptance checklist
 
