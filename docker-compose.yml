@@ -11,7 +11,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-flowgard}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-flowgard}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ${POSTGRES_DB:-flowgard}
     volumes:
       - flowgard_pgdata:/var/lib/postgresql/data
@@ -28,14 +28,13 @@ services:
   migrate:
     build: .
     command: ["alembic", "upgrade", "head"]
+    # All settings and secrets come from .env; compose only overrides what
+    # differs inside the container network.
+    env_file: &app_env_file .env
     environment: &app_env
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-flowgard}:${POSTGRES_PASSWORD:-flowgard}@db:5432/${POSTGRES_DB:-flowgard}
-      TEST_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-flowgard}:${POSTGRES_PASSWORD:-flowgard}@db:5432/${POSTGRES_DB:-flowgard}_test
-      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev-secret-change-me}
+      DATABASE_URL: ${DOCKER_DATABASE_URL:?set DOCKER_DATABASE_URL in .env}
+      TEST_DATABASE_URL: ${DOCKER_TEST_DATABASE_URL:?set DOCKER_TEST_DATABASE_URL in .env}
       CORS_ALLOW_ORIGINS: http://localhost:3000,http://localhost:8501
-      PLATFORM_ADMIN_EMAIL: ${PLATFORM_ADMIN_EMAIL:-platform.admin@flow.com}
-      PLATFORM_ADMIN_PASSWORD: ${PLATFORM_ADMIN_PASSWORD:?set PLATFORM_ADMIN_PASSWORD in .env}
-      PLATFORM_ADMIN_FULL_NAME: ${PLATFORM_ADMIN_FULL_NAME:-Platform Administrator}
     depends_on:
       db:
         condition: service_healthy
@@ -45,6 +44,7 @@ services:
     restart: unless-stopped
     ports:
       - "8000:8000"
+    env_file: *app_env_file
     environment: *app_env
     depends_on:
       db:
@@ -68,6 +68,7 @@ services:
   seed:
     build: .
     command: ["sh", "-c", "python scripts/seed_platform_admin.py && python scripts/seed_kpc_tenant.py && python scripts/seed_uat_users.py && python scripts/seed_uat_data.py"]
+    env_file: *app_env_file
     environment: *app_env
     depends_on:
       db:
