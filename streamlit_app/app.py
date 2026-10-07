@@ -559,7 +559,7 @@ with st.sidebar:
     if not st.session_state["jwt_token"]:
         st.subheader("🔑 Authentication")
         email_input = st.text_input("Email", value="admin@kpc.co.ke" if not is_water_mode else "admin@ncwsc.co.ke")
-        password_input = st.text_input("Password", value="password123", type="password")
+        password_input = st.text_input("Password", type="password")
         if st.button("Sign In", type="primary", use_container_width=True):
             res = api_request("POST", "/api/v1/users/login", data={"email": email_input, "password": password_input})
             if res and "access_token" in res:

@@ -50,9 +50,9 @@ The system replaces fixed-interval maintenance with real-time operational risk a
    APP_NAME=flowgard
    ENVIRONMENT=development
    DEBUG=true
-   DATABASE_URL=postgresql+psycopg://flowgard:flowgard@localhost:5432/flowgard
-   TEST_DATABASE_URL=postgresql+psycopg://flowgard:flowgard@localhost:5432/flowgard_test
-   JWT_SECRET_KEY=change-this-to-a-secure-random-secret-in-production
+   DATABASE_URL=postgresql+psycopg://<user>:<password>@localhost:5432/flowgard
+   TEST_DATABASE_URL=postgresql+psycopg://<user>:<password>@localhost:5432/flowgard_test
+   JWT_SECRET_KEY=<random 48+ char secret>
    JWT_ALGORITHM=HS256
    JWT_ACCESS_TOKEN_EXPIRE_MINUTES=60
    CORS_ALLOW_ORIGINS=http://localhost:3000,http://localhost:8501
@@ -122,7 +122,7 @@ docker compose --profile seed run --rm seed
    streamlit run streamlit_app/app.py --server.port 8501
    ```
    - **Dashboard Access:** `http://localhost:8501`
-   - Default credentials for sign-in: `admin@kpc.co.ke` / `password123`
+   - Sign in with an account seeded from your `.env` (see `SEED_<ROLE>_PASSWORD`).
 
 ---
 

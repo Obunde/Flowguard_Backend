@@ -1,11 +1,17 @@
+import sys
 import time
 from datetime import datetime
+from pathlib import Path
 
 import numpy as np
 from sqlalchemy import create_engine, text
 
-# Updated with the URL-encoded password
-engine = create_engine('postgresql://postgres:Kabarnet%409@localhost:5432/kpc_predictive_maintenance')
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from app.core.config import settings  # noqa: E402
+
+# Connection comes from DATABASE_URL in .env — never hardcode credentials here.
+engine = create_engine(settings.database_url)
 
 def generate_live_reading(pump_id, wear_multiplier):
     """Simulates a single sensor reading with progressive degradation."""
